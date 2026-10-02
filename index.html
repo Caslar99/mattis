@@ -340,7 +340,8 @@
       <li>Everyone always holds 3 cards. When you lay one, you draw a new one.</li>
       <li>Instead of laying from your hand, you can press <b>Chance card</b> on the deck: the top card of the deck is laid instead, and your hand stays the same.</li>
       <li>Everyone lays one card. When all have laid, the <b>highest card takes the whole stack</b>.</li>
-      <li>If two or more tie on the <b>highest</b> card, only they <b>battle</b> (equal lower cards don't matter): each lays another card, and the highest takes it all. Tie again? Battle again.</li>
+      <li>But if two or more cards have the <b>same value</b> (two 3s, two kings…), those players <b>battle</b>: each lays another card, and the highest takes it all, including any higher card on the table. Tie again? Battle again.</li>
+      <li>More than one pair (say two 6s and two 9s)? Only the highest pair battles.</li>
       <li>Don't want the stack? Lay low and let someone else take it.</li>
       <li>Whoever takes the stack starts the next round.</li>
       <li>The last card in the deck is the hidden <b>trump</b>. Whoever would draw it gets it, revealed when the deck is gone.</li>
@@ -600,7 +601,7 @@ function statusMessage() {
         : `Battle with ${others}! Lay a card, and the highest takes it all.`;
     }
     if (!best) return 'You start: lay a card. When everyone has laid, the highest card takes the stack.';
-    return `Highest so far: ${M.label(best.card)} (${nameOf(best.by)}). Beat it to take the stack, or lay lower to avoid it.`;
+    return `Highest so far: ${M.label(best.card)} (${nameOf(best.by)}). Beat it to take the stack, lay lower to avoid it, or match any card's value to start a battle.`;
   }
   if (!g.stack.length) return 'Your lead: play any card.';
   const top = g.stack[g.stack.length - 1].card;

@@ -49,8 +49,10 @@
   }
 
   // ---------- Round 1: collecting ----------
-  // Everyone lays one card, clockwise from the leader. When all have laid, the highest card takes
-  // the stack. If several share the highest rank, only they battle: they lay again until one wins.
+  // Everyone lays one card, clockwise from the leader. When all have laid:
+  // - if two or more cards share a rank (any rank), those players battle: they lay again and the
+  //   winner takes the whole stack. With several pairs, only the highest pair battles.
+  // - otherwise the highest card takes the stack.
 
   // The last card (the trump) can never be gambled.
   const canGamble = g => g.round === 1 && g.deck.length >= 2;
@@ -105,9 +107,15 @@
 
   function resolveTrick(g) {
     const r1 = g.r1;
-    const top = Math.max(...r1.plays.map(e => e.card.rank));
+    const count = {};
+    for (const e of r1.plays) count[e.card.rank] = (count[e.card.rank] || 0) + 1;
+    const pairRanks = Object.keys(count).filter(r => count[r] > 1).map(Number);
+    if (!pairRanks.length) {
+      const best = r1.plays.reduce((b, e) => (e.card.rank > b.card.rank ? e : b));
+      return awardR1(g, best.by);
+    }
+    const top = Math.max(...pairRanks);
     const tied = r1.plays.filter(e => e.card.rank === top).map(e => e.by);
-    if (tied.length === 1) return awardR1(g, tied[0]);
     // After the deck is gone a tied player may have nothing left to battle with.
     const fighters = tied.filter(p => canAct(g, p));
     if (fighters.length <= 1) return awardR1(g, fighters.length ? fighters[0] : tied[0]);
