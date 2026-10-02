@@ -131,12 +131,30 @@
   .deck .count small { color: var(--muted); font-size: .78rem; }
   .divider { width: 1px; align-self: stretch; background: rgba(255,255,255,.12); margin: 6px 0 30px; }
   .trick { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: var(--mid-w); }
-  .trick-cards { display: flex; justify-content: center; align-items: flex-start; min-height: calc(var(--mid-w) * 1.45 + 30px); }
-  .trick-cards.faded { opacity: .55; }
-  .played { display: flex; flex-direction: column; align-items: center; gap: 6px; width: var(--mid-w); flex: none; }
-  .played .card { width: var(--mid-w); }
-  .played .by { font-size: .78rem; padding: 3px 10px; border-radius: 8px; background: rgba(0,0,0,.45); white-space: nowrap; max-width: var(--label-w, 100%); overflow: hidden; text-overflow: ellipsis; }
-  .played.tight .by { align-self: flex-start; }
+  /* The stack: a neat pile that fans out on hover (or tap on touch screens) */
+  .stackpile { position: relative; width: var(--mid-w); height: calc(var(--mid-w) * 1.45); cursor: pointer; margin-bottom: 30px; }
+  .stackpile .played { position: absolute; left: 0; top: 0; width: var(--mid-w);
+    transform: translate(var(--sx), var(--sy)) rotate(var(--sr)); transition: transform .3s cubic-bezier(.2,.7,.2,1); }
+  .stackpile .played .card { width: var(--mid-w); }
+  .stackpile .played .by { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity .2s; }
+  .stackpile.open .played { transform: translate(var(--ex), 0) rotate(0deg); }
+  .stackpile.open .played .by { opacity: 1; }
+  .center:has(.stackpile.open) { z-index: 6; }
+  @media (hover: hover) {
+    .stackpile:hover .played { transform: translate(var(--ex), 0) rotate(0deg); }
+    .stackpile:hover .played .by { opacity: 1; }
+    .center:has(.stackpile:hover) { z-index: 6; }
+  }
+  .ghost { visibility: hidden !important; }
+  .deckwrap { position: relative; }
+  .chance { position: absolute; left: 50%; bottom: -16px; transform: translateX(-50%); z-index: 2; height: 34px; padding: 0 14px; font-size: .82rem; border-radius: 999px; white-space: nowrap; }
+  .chance:disabled { opacity: .55; filter: grayscale(.4); }
+  .deck .count { margin-top: 14px; }
+  .flycard { position: fixed; z-index: 50; pointer-events: none; perspective: 900px; }
+  .flycard .inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
+  .flycard img { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 6%; box-shadow: 0 14px 30px rgba(0,0,0,.55); }
+  .flycard .back { transform: rotateY(180deg); }
+  .stackpile .played .by { font-size: .78rem; padding: 3px 10px; border-radius: 8px; background: rgba(0,0,0,.45); white-space: nowrap; max-width: var(--label-w, 100%); overflow: hidden; text-overflow: ellipsis; }
   .played .by.battle { background: rgba(194,65,12,.85); }
   .trick .caption { font-size: .85rem; color: var(--text); text-align: center; min-height: 1.2em; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
   .empty { width: var(--mid-w); height: calc(var(--mid-w) * 1.45); border: 2px dashed rgba(255,255,255,.22); border-radius: 8px; }
@@ -156,10 +174,6 @@
   .actions { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .actions .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .play-btn { min-width: 260px; height: 54px; justify-content: center; font-size: 1.15rem; font-family: var(--serif); border-radius: 12px; }
-  .check { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 500; user-select: none; }
-  .check input { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; }
-  .check.disabled { opacity: .45; cursor: default; }
-  .help { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--muted); color: var(--muted); display: inline-grid; place-items: center; font-size: .72rem; cursor: help; }
 
   /* Side panels */
   .side { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
@@ -273,19 +287,22 @@
     <div class="seats" id="seats"></div>
     <div class="center">
       <div class="deck">
-        <div class="pile" id="pile"></div>
+        <div class="deckwrap">
+          <div class="pile" id="pile"></div>
+          <button class="btn gold chance" id="chance" title="Play the top card of the deck instead of a card from your hand">🎲 Chance card</button>
+        </div>
         <div class="count" id="deckCount"></div>
       </div>
       <div class="divider"></div>
       <div class="trick">
-        <div class="trick-cards" id="trick"></div>
+        <div class="stackpile" id="stackpile"></div>
         <div class="caption" id="caption"></div>
       </div>
     </div>
   </div>
 
   <div class="me" id="me">
-    <div class="chip"><div class="avatar" id="myAvatar"></div><div class="who"><span class="name">You</span></div></div>
+    <div class="chip" id="meChip"><div class="avatar" id="myAvatar"></div><div class="who"><span class="name">You</span></div></div>
     <div class="hand" id="hand"></div>
     <div class="handcount" id="handCount"></div>
     <div class="actions">
@@ -293,10 +310,6 @@
         <button class="btn gold play-btn" id="playBtn"></button>
         <button class="btn" id="pickup">Pick up first card</button>
       </div>
-      <label class="check" id="gambleWrap">
-        <input type="checkbox" id="gamble"> Gamble top card of deck
-        <span class="help" title="Instead of playing from your hand, flip the top card of the deck and play that. Your hand stays the same.">?</span>
-      </label>
     </div>
   </div>
 
@@ -313,7 +326,7 @@
     <h3>Round 1: Collecting</h3>
     <ul>
       <li>Everyone always holds 3 cards. When you lay one, you draw a new one.</li>
-      <li>Instead of laying from your hand, you can <b>gamble</b>: flip the top card of the deck and lay that.</li>
+      <li>Instead of laying from your hand, you can press <b>Chance card</b> on the deck: the top card of the deck is laid instead, and your hand stays the same.</li>
       <li>Everyone lays one card. When all have laid, the <b>highest card takes the whole stack</b>.</li>
       <li>If two or more tie on the highest card, only they <b>battle</b>: each lays another card, and the highest takes it all. Tie again? Battle again.</li>
       <li>Don't want the stack? Lay low and let someone else take it.</li>
@@ -345,13 +358,23 @@
 <script>
 const M = window.Mattis;
 const $ = id => document.getElementById(id);
-let game, timer = null, selected = null;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const canHover = matchMedia('(hover: hover)').matches;
+
+let game, timer = null, selected = null, busy = false;
+let hidden = new Set();  // card ids drawn invisible while a flying copy is on its way to them
+let holdStack = null;    // a just-taken/cleared stack, kept on the table until it has flown away
+let handOrder = [];      // your round-1 hand order, so a drawn card slots into the gap it fills
+let stackOpen = false;   // fanned-out stack on touch screens
 
 const SUIT_FILE = { '♠': 'spade', '♥': 'heart', '♦': 'diamond', '♣': 'club' };
 const RANK_FILE = { 11: 'jack', 12: 'queen', 13: 'king', 14: '1' };
 const cardSrc = c => `cards/${SUIT_FILE[c.suit]}_${RANK_FILE[c.rank] || c.rank}.png`;
 const AVATAR_BG = ['b6e3f4', 'c0aede', 'd1d4f9', 'ffd5dc', 'ffdfbf', 'c1f0c1', 'f9e2ae', 'bde0fe'];
 const COLORS = ['#3b82f6', '#a855f7', '#ec4899', '#f97316', '#14b8a6', '#eab308', '#ef4444', '#22c55e'];
+const cssPx = name => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 80;
+const isWide = () => window.innerWidth >= 1000;
 
 for (let n = 2; n <= 8; n++) $('players').add(new Option(n + ' players', n, n === 4, n === 4));
 try { const saved = localStorage.getItem('mattis-players'); if (saved) $('players').value = saved; } catch {}
@@ -361,8 +384,9 @@ function newGame() {
   const n = +$('players').value;
   try { localStorage.setItem('mattis-players', n); } catch {}
   game = M.createGame(n);
-  selected = null;
-  $('gamble').checked = false;
+  selected = null; busy = false; holdStack = null; stackOpen = false;
+  hidden = new Set();
+  handOrder = game.players[0].hand.slice().sort((a, b) => a.rank - b.rank).map(c => c.id);
   $('over').hidden = true;
   render();
 }
@@ -390,13 +414,144 @@ function cardEl(c, faceDown) {
   img.alt = faceDown ? 'Face-down card' : M.label(c);
   img.draggable = false;
   el.appendChild(img);
-  if (!faceDown) el.title = M.label(c);
+  if (!faceDown) { el.title = M.label(c); el.dataset.id = c.id; if (hidden.has(c.id)) el.classList.add('ghost'); }
   return el;
 }
+
+// ---------- Animation helpers ----------
+
+const rectOf = el => { const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width }; };
+// A card-shaped rect of width w centred on an element (seats, chips, the deck).
+function cardRectAt(el, w) {
+  const r = el.getBoundingClientRect();
+  return { left: r.left + r.width / 2 - w / 2, top: r.top + r.height / 2 - w * 0.725, width: w };
+}
+function seatAnchor(p) {
+  if (p === 0) return $('meChip');
+  const seat = document.querySelector(`.seat[data-seat="${p}"]`);
+  const fan = seat.querySelector('.fan');
+  return fan && fan.offsetParent && fan.childElementCount ? fan : seat.querySelector('.chip');
+}
+const seatRect = p => cardRectAt(seatAnchor(p), p === 0 ? cssPx('--mid-w') * .6 : cssPx('--fan-w') * 1.3);
+const deckRect = () => cardRectAt($('pile'), cssPx('--mid-w'));
+const handCard = id => document.querySelector(`#hand .card[data-id="${id}"]`);
+const stackCard = id => document.querySelector(`#stackpile .played[data-id="${id}"] .card`);
+
+// Fly a copy of a card from one rect to another. flip: 'up' (back→face), 'down' (face→back), 'back' (stay face-down).
+function fly({ card, from, to, flip = null, duration = 450, delay = 0, fade = false }) {
+  if (reduceMotion || !from || !to) return Promise.resolve();
+  const el = document.createElement('div');
+  el.className = 'flycard';
+  el.style.cssText = `left:${from.left}px;top:${from.top}px;width:${from.width}px;height:${from.width * 1.45}px`;
+  el.innerHTML = `<div class="inner"><img class="front" alt="" src="${card ? cardSrc(card) : 'cards/back.png'}"><img class="back" alt="" src="cards/back.png"></div>`;
+  document.body.appendChild(el);
+  const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+  const dy = to.top + to.width * 0.725 - (from.top + from.width * 0.725);
+  const s = to.width / from.width;
+  const timing = { duration, delay, easing: 'cubic-bezier(.25,.8,.25,1)', fill: 'both' };
+  const a = el.animate([
+    { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1 },
+    { transform: `translate(${dx * .5}px,${dy * .5 - 24}px) scale(${(1 + s) / 2 * 1.06}) rotate(-4deg)`, opacity: 1, offset: .5 },
+    { transform: `translate(${dx}px,${dy}px) scale(${s}) rotate(0deg)`, opacity: fade ? 0 : 1 },
+  ], timing);
+  const inner = el.firstChild, back = 'rotateY(180deg)', face = 'rotateY(0deg)';
+  if (flip === 'up') inner.animate([{ transform: back }, { transform: face }], timing);
+  else if (flip === 'down') inner.animate([{ transform: face }, { transform: back }], timing);
+  else if (flip === 'back') inner.style.transform = back;
+  return a.finished.then(() => el.remove(), () => el.remove());
+}
+
+function reveal(id) {
+  hidden.delete(id);
+  document.querySelectorAll(`[data-id="${id}"]`).forEach(e => e.classList.remove('ghost'));
+}
+
+// Every move (yours or a computer's) goes through here so it can be animated.
+async function performMove(move) {
+  if (busy || game.over) return;
+  busy = true;
+  clearTimeout(timer);
+  const g = game, p = g.turn, prevRound = g.round, prevLast = g.lastTrick;
+
+  // Where does the card come from? (Measured before the move changes the DOM.)
+  let from;
+  const pickedEntry = move === 'pickup' ? g.stack[0] : null;
+  if (move === 'gamble') from = deckRect();
+  else if (pickedEntry) from = rectOf(stackCard(pickedEntry.card.id));
+  else if (p === 0) from = rectOf(handCard(move));
+  else from = seatRect(p);
+  const slot = p === 0 && g.round === 1 && move !== 'gamble' ? handOrder.indexOf(move) : -1;
+
+  selected = null;
+  stackOpen = false; // close a fanned-out stack so the new card is seen landing on top
+  M.act(g, move);
+
+  const resolved = g.lastTrick && g.lastTrick !== prevLast ? g.lastTrick : null;
+  const draw = prevRound === 1 && g.lastDraw && g.lastDraw.p === p ? g.lastDraw : null;
+  if (slot >= 0) {
+    if (draw && draw.id) handOrder[slot] = draw.id; // the new card takes the played card's spot
+    else handOrder.splice(slot, 1);
+  }
+  holdStack = resolved ? resolved.entries : null;
+
+  if (pickedEntry) {
+    if (p === 0) hidden.add(pickedEntry.card.id);
+    render();
+    const to = p === 0 ? rectOf(handCard(pickedEntry.card.id)) : seatRect(p);
+    await fly({ card: pickedEntry.card, from, to, flip: p === 0 ? null : 'down', duration: 480 });
+    reveal(pickedEntry.card.id);
+  } else {
+    const entries = g.stack.length ? g.stack : resolved.entries;
+    const laid = entries[entries.length - 1];
+    hidden.add(laid.card.id);
+    if (draw && draw.id && p === 0) hidden.add(draw.id);
+    render();
+    const target = stackCard(laid.card.id);
+    await fly({ card: laid.card, from, to: target && rectOf(target), flip: p === 0 && move !== 'gamble' ? null : 'up', duration: 520 });
+    reveal(laid.card.id);
+    if (draw) {
+      const mine = p === 0 && draw.id && handCard(draw.id);
+      if (mine) {
+        await fly({ card: game.players[0].hand.find(c => c.id === draw.id), from: deckRect(), to: rectOf(mine), flip: 'up', duration: 420 });
+        reveal(draw.id);
+      } else {
+        await fly({ card: null, from: deckRect(), to: seatRect(p), flip: 'back', duration: 420 });
+      }
+    }
+    if (resolved) {
+      await sleep(reduceMotion ? 600 : 1000); // let everyone see the result
+      await collect(resolved);
+    }
+  }
+  holdStack = null;
+  busy = false;
+  render();
+}
+
+// Taken stack flies to the winner; a cleared round-2 stack slides off the table.
+async function collect(t) {
+  const wraps = [...document.querySelectorAll('#stackpile .played')];
+  const felt = document.querySelector('.felt').getBoundingClientRect();
+  const w = cssPx('--mid-w');
+  const to = t.cleared ? { left: felt.right - w * 1.2, top: felt.top + felt.height * .4, width: w * .8 } : seatRect(t.winner);
+  const flights = wraps.map((wrap, i) => {
+    const card = t.entries[i] && t.entries[i].card;
+    const from = rectOf(wrap.querySelector('.card'));
+    wrap.classList.add('ghost');
+    return fly({ card, from, to, flip: t.cleared ? null : 'down', duration: 560, delay: i * 70, fade: t.cleared });
+  });
+  await Promise.all(flights);
+}
+
+// ---------- Rendering ----------
 
 function statusMessage() {
   const g = game;
   if (g.over) return g.loser === 0 ? 'You were left holding cards. You lose!' : `${nameOf(g.loser)} is left holding cards and loses!`;
+  if (busy && holdStack) {
+    const t = g.lastTrick;
+    return t.cleared ? 'Everyone has laid a card, so the stack goes out.' : `${t.winner === 0 ? 'You take' : nameOf(t.winner) + ' takes'} the stack!`;
+  }
   if (g.turn !== 0) return g.round === 1 && g.r1.battle ? `Battle! ${nameOf(g.turn)} is laying…` : `${nameOf(g.turn)} is thinking…`;
   if (g.round === 1) {
     const r1 = g.r1;
@@ -433,9 +588,8 @@ function seatPositions(k) {
 }
 
 function render() {
-  const g = game, me = g.players[0], myTurn = !g.over && g.turn === 0;
+  const g = game, myTurn = !g.over && !busy && g.turn === 0;
 
-  // Status bar
   $('round').innerHTML = g.over ? 'Game over' : g.round === 1 ? 'Round 1 <span>· Collecting</span>' : 'Round 2 <span>· Shed your cards</span>';
   $('trump').innerHTML = g.trumpSuit
     ? `<span class="diamond">◆</span> Trump: <span class="suit${M.isRed(g.trumpCard) ? ' red' : ''}">${g.trumpSuit}</span>`
@@ -443,7 +597,6 @@ function render() {
   $('msg').textContent = statusMessage();
   $('msg').className = 'msg' + (myTurn ? ' you' : '');
 
-  // Opponents
   const seats = $('seats');
   seats.innerHTML = '';
   const pos = seatPositions(g.n - 1);
@@ -454,8 +607,17 @@ function render() {
     seats.appendChild(el);
   }
 
-  // Deck / trump
-  const pile = $('pile');
+  renderDeck(myTurn);
+  renderStack();
+  renderHand(myTurn);
+  renderPanels();
+
+  if (g.over && !busy) showGameOver();
+  else schedule();
+}
+
+function renderDeck(myTurn) {
+  const g = game, pile = $('pile');
   pile.innerHTML = '';
   if (g.round === 1) {
     if (g.deck.length) {
@@ -471,52 +633,67 @@ function render() {
       ? `${g.deck.length - 1} cards<br><small>+ hidden trump</small>`
       : g.deck.length ? 'Only the trump<br><small>is left</small>' : 'Deck empty';
   } else {
-    const t = cardEl(g.trumpCard); pile.appendChild(t);
+    pile.appendChild(cardEl(g.trumpCard));
     $('deckCount').innerHTML = `Trump card<br><small>${g.trumpOwner === 0 ? 'You' : nameOf(g.trumpOwner)} got it</small>`;
   }
+  const chance = $('chance');
+  chance.hidden = g.round !== 1 || g.deck.length < 2;
+  chance.disabled = !(myTurn && M.canGamble(g));
+}
 
-  // Current stack, or the last one taken/cleared (faded) so you can see what happened
-  const trick = $('trick');
-  trick.innerHTML = '';
-  const showing = g.stack.length ? g.stack : g.lastTrick ? g.lastTrick.entries : [];
-  trick.className = 'trick-cards' + (!g.stack.length && g.lastTrick ? ' faded' : '');
-  const midW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mid-w')) || 90;
-  const box = document.querySelector('.tablebox').clientWidth;
-  const maxW = (window.innerWidth >= 1000 ? box * 0.56 : box - 28) - midW - 70; // room left beside the deck
-  const step = showing.length > 1 ? Math.min(midW + 10, Math.max(22, (maxW - midW) / (showing.length - 1))) : 0;
-  showing.forEach((e, i) => {
+function renderStack() {
+  const g = game, pile = $('stackpile');
+  const entries = g.stack.length ? g.stack : holdStack || [];
+  pile.innerHTML = '';
+  if (!entries.length) {
+    stackOpen = false;
+    pile.classList.remove('open');
+    pile.innerHTML = '<div class="empty"></div>';
+    $('caption').textContent = g.lastTrick && !g.lastTrick.cleared && g.round === 1
+      ? `${g.lastTrick.winner === 0 ? 'You' : nameOf(g.lastTrick.winner)} took the last stack (${g.lastTrick.entries.length} cards).`
+      : 'Empty';
+    return;
+  }
+  const n = entries.length, w = cssPx('--mid-w');
+  // Fanned-out positions, kept inside the screen.
+  const box = document.querySelector('.tablebox').getBoundingClientRect();
+  const avail = Math.min(window.innerWidth - 32, isWide() ? box.width * 0.75 : box.width - 20);
+  const step = n > 1 ? Math.min(w + 12, (avail - w) / (n - 1)) : 0;
+  const rowW = (n - 1) * step + w;
+  const pr = pile.getBoundingClientRect();
+  const start = Math.max(16, Math.min(pr.left + w / 2 - rowW / 2, window.innerWidth - 16 - rowW));
+  entries.forEach((e, i) => {
+    const depth = Math.min(n - 1 - i, 4); // 0 = top card
     const wrap = document.createElement('div');
     wrap.className = 'played';
-    if (i) wrap.style.marginLeft = (step - midW) + 'px';
-    // Overlapped cards only have `step` px visible, so keep their name label inside that.
-    if (i < showing.length - 1 && step < midW) { wrap.classList.add('tight'); wrap.style.setProperty('--label-w', (step - 4) + 'px'); }
+    wrap.dataset.id = e.card.id;
+    if (hidden.has(e.card.id)) wrap.classList.add('ghost');
+    const tilt = depth ? ([...e.card.id].reduce((s, ch) => s + ch.charCodeAt(0), 0) % 15) - 7 : 0;
+    wrap.style.setProperty('--sx', -depth * 6 + 'px');
+    wrap.style.setProperty('--sy', -depth * 3 + 'px');
+    wrap.style.setProperty('--sr', tilt + 'deg');
+    wrap.style.setProperty('--ex', (start + i * step - pr.left) + 'px');
     wrap.appendChild(cardEl(e.card));
     const by = document.createElement('span');
     by.className = 'by' + (e.battle ? ' battle' : '');
     by.textContent = (e.battle ? '⚔ ' : '') + nameOf(e.by) + (e.gambled ? ' 🎲' : '');
+    if (i < n - 1 && step < w) by.style.setProperty('--label-w', (step - 4) + 'px');
     wrap.appendChild(by);
-    trick.appendChild(wrap);
+    pile.appendChild(wrap);
   });
-  if (!showing.length) trick.innerHTML = '<div class="empty"></div>';
-  let caption = '';
-  if (!g.stack.length && g.lastTrick) {
-    caption = g.lastTrick.cleared
-      ? 'Everyone laid a card, so the stack went out.'
-      : `${g.lastTrick.winner === 0 ? 'You take' : nameOf(g.lastTrick.winner) + ' takes'} these ${g.lastTrick.entries.length} cards.`;
-  } else if (g.round === 1 && g.r1.battle) caption = `⚔ Battle: ${g.r1.order.map(nameOf).join(' vs ')}`;
+  pile.classList.toggle('open', stackOpen && n > 1);
+  const top = entries[n - 1];
+  const hint = n > 1 ? (canHover ? ' · hover to see all' : ' · tap to see all') : '';
+  let caption = `${nameOf(top.by)} · ${n} card${n === 1 ? '' : 's'}${hint}`;
+  if (g.round === 1 && g.r1 && g.r1.battle && !holdStack) caption = `⚔ ${g.r1.order.map(nameOf).join(' vs ')} · ${n} cards${hint}`;
   $('caption').textContent = caption;
-
-  renderHand(myTurn);
-  renderPanels();
-
-  if (g.over) showGameOver();
-  else schedule();
 }
 
 function seatEl(i) {
   const g = game, pl = g.players[i];
   const el = document.createElement('div');
-  el.className = 'seat' + (!g.over && g.turn === i ? ' turn' : '') + (pl.out ? ' out' : '');
+  el.className = 'seat' + (!g.over && g.turn === i && !(busy && holdStack) ? ' turn' : '') + (pl.out ? ' out' : '');
+  el.dataset.seat = i;
   const chip = document.createElement('div');
   chip.className = 'chip';
   chip.appendChild(avatarEl(i));
@@ -556,17 +733,23 @@ function renderHand(myTurn) {
   $('me').className = 'me' + (myTurn ? ' turn' : '');
   if (!$('myAvatar').childElementCount) $('myAvatar').replaceWith(Object.assign(avatarEl(0), { id: 'myAvatar' }));
 
-  const gambling = g.round === 1 && $('gamble').checked && M.canGamble(g);
-  const legal = new Set(myTurn && !gambling ? M.legalCards(g, 0).map(c => c.id) : []);
+  const legal = new Set(myTurn ? M.legalCards(g, 0).map(c => c.id) : []);
   if (!legal.has(selected)) selected = null;
 
-  const order = M.SUITS;
-  const sorted = me.hand.slice().sort(g.round === 2
-    ? (a, b) => (a.suit === g.trumpSuit) - (b.suit === g.trumpSuit) || order.indexOf(a.suit) - order.indexOf(b.suit) || a.rank - b.rank
-    : (a, b) => a.rank - b.rank);
+  let sorted;
+  if (g.round === 1) {
+    // Keep your own order so a newly drawn card lands in the empty spot.
+    const ids = new Set(me.hand.map(c => c.id));
+    handOrder = handOrder.filter(id => ids.has(id));
+    for (const c of me.hand) if (!handOrder.includes(c.id)) handOrder.push(c.id);
+    sorted = handOrder.map(id => me.hand.find(c => c.id === id));
+  } else {
+    const order = M.SUITS;
+    sorted = me.hand.slice().sort((a, b) => (a.suit === g.trumpSuit) - (b.suit === g.trumpSuit) || order.indexOf(a.suit) - order.indexOf(b.suit) || a.rank - b.rank);
+  }
   const hand = $('hand');
   hand.innerHTML = '';
-  const cw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hand-w')) || 100;
+  const cw = cssPx('--hand-w');
   const avail = hand.clientWidth || 600;
   const step = sorted.length > 1 ? Math.min(cw + 12, (avail - cw) / (sorted.length - 1)) : 0;
   sorted.forEach((c, i) => {
@@ -575,10 +758,10 @@ function renderHand(myTurn) {
     if (legal.has(c.id)) {
       el.classList.add('playable');
       el.addEventListener('click', () => {
-        if (selected === c.id) humanMove(c.id); // click a selected card again to play it
+        if (selected === c.id) performMove(c.id); // click a selected card again to play it
         else { selected = c.id; renderHand(true); }
       });
-    } else if (myTurn && !gambling) el.classList.add('dim');
+    } else if (myTurn) el.classList.add('dim');
     if (selected === c.id) el.classList.add('selected');
     hand.appendChild(el);
   });
@@ -587,18 +770,13 @@ function renderHand(myTurn) {
   const btn = $('playBtn');
   const sel = selected && me.hand.find(c => c.id === selected);
   if (g.over) { btn.textContent = 'Game over'; btn.disabled = true; }
+  else if (busy) { btn.textContent = '…'; btn.disabled = true; }
   else if (!myTurn) { btn.textContent = `Waiting for ${nameOf(g.turn)}…`; btn.disabled = true; }
-  else if (gambling) { btn.textContent = '🎲 Gamble top card'; btn.disabled = false; }
   else if (sel) { btn.textContent = `♠ Play ${M.label(sel)}`; btn.disabled = false; }
   else { btn.textContent = legal.size ? 'Select a card' : 'No card can beat it'; btn.disabled = true; }
 
   $('pickup').hidden = g.round !== 2 || me.out;
   $('pickup').disabled = !(myTurn && g.stack.length);
-  $('gambleWrap').hidden = g.round !== 1;
-  const canG = M.canGamble(g);
-  $('gamble').disabled = !canG;
-  if (!canG) $('gamble').checked = false;
-  $('gambleWrap').classList.toggle('disabled', !canG);
 }
 
 function renderPanels() {
@@ -627,19 +805,11 @@ function renderPanels() {
   });
 }
 
-function humanMove(move) {
-  if (game.over || game.turn !== 0) return;
-  selected = null;
-  M.act(game, move);
-  render();
-}
-
 function schedule() {
   clearTimeout(timer);
-  if (game.over || game.turn === 0) return;
-  // Pause longer after a stack is taken or cleared so you can see what happened.
-  const delay = !game.stack.length && game.lastTrick ? 1700 : 850;
-  timer = setTimeout(() => { M.act(game, M.aiMove(game)); render(); }, delay);
+  if (busy || game.over || game.turn === 0) return;
+  // Computer players take a moment to "think".
+  timer = setTimeout(() => performMove(M.aiMove(game)), 1100 + Math.random() * 700);
 }
 
 function showGameOver() {
@@ -649,22 +819,28 @@ function showGameOver() {
   $('overText').textContent = (g.loser === 0
     ? 'You were the last one holding cards.'
     : `${nameOf(g.loser)} was the last one holding cards.`) + ` Order out of cards: ${safe.join(', ')}.`;
-  setTimeout(() => { if (game === g) $('over').hidden = false; }, 1000);
+  setTimeout(() => { if (game === g) $('over').hidden = false; }, 1200);
 }
 
 $('newGame').onclick = newGame;
 $('again').onclick = newGame;
-$('playBtn').onclick = () => {
-  if (game.round === 1 && $('gamble').checked) humanMove('gamble');
-  else if (selected) humanMove(selected);
-};
-$('gamble').onchange = () => { selected = null; renderHand(!game.over && game.turn === 0); };
-$('pickup').onclick = () => humanMove('pickup');
+$('playBtn').onclick = () => { if (selected) performMove(selected); };
+$('chance').onclick = () => performMove('gamble');
+$('pickup').onclick = () => performMove('pickup');
 $('rulesBtn').onclick = () => { $('rules').hidden = false; };
 $('closeRules').onclick = () => { $('rules').hidden = true; };
 $('rules').addEventListener('click', e => { if (e.target.id === 'rules') $('rules').hidden = true; });
+// Touch screens: tap the stack to fan it out, tap anywhere else to close it.
+$('stackpile').addEventListener('click', () => {
+  if (canHover || $('stackpile').querySelectorAll('.played').length < 2) return;
+  stackOpen = !stackOpen;
+  $('stackpile').classList.toggle('open', stackOpen && $('stackpile').childElementCount > 1);
+});
+document.addEventListener('click', e => {
+  if (stackOpen && !$('stackpile').contains(e.target)) { stackOpen = false; $('stackpile').classList.remove('open'); }
+});
 let resizeTimer;
-window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { clearTimeout(timer); render(); }, 150); });
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
 
 // Preload card images so cards don't pop in mid-game
 for (const s of Object.values(SUIT_FILE)) for (const r of ['1', 2, 3, 4, 5, 6, 7, 8, 9, 10, 'jack', 'queen', 'king']) new Image().src = `cards/${s}_${r}.png`;

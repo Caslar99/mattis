@@ -38,6 +38,7 @@
       trumpCard: deck[0], // bottom card of the deck, hidden until round 1 ends
       trumpOwner: null, trumpSuit: null,
       round: 1, turn: 0, r1: null,
+      lastDraw: null, // { p, id } of the card just drawn in round 1, or { p, trump: true }
       stack: [], discard: [], lastTrick: null,
       finishOrder: [], over: false, loser: null, log: [],
     };
@@ -63,10 +64,15 @@
   }
 
   function drawCard(g, p) {
-    if (g.deck.length >= 2) g.players[p].hand.push(g.deck.pop());
+    if (g.deck.length >= 2) {
+      const c = g.deck.pop();
+      g.players[p].hand.push(c);
+      g.lastDraw = { p, id: c.id };
+    }
     else if (g.deck.length === 1) {
       g.deck.pop();
       g.trumpOwner = p;
+      g.lastDraw = { p, trump: true };
       log(g, say(g, p, 'get', 'gets') + ' the last card: the hidden trump. It is revealed after round 1.', p);
     }
   }
@@ -75,6 +81,7 @@
     if (g.over || g.round !== 1 || g.turn !== p) throw new Error('Not your turn');
     const pl = g.players[p];
     let card, gambled = false;
+    g.lastDraw = null;
     if (cardId === 'gamble') {
       if (!canGamble(g)) throw new Error('Cannot gamble now');
       card = g.deck.pop();
