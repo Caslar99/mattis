@@ -3,7 +3,7 @@
   'use strict';
 
   const SUITS = ['♠', '♥', '♦', '♣'];
-  const NAMES = ['You', 'Mette', 'Lars', 'Sofie', 'Jens', 'Ida', 'Mads', 'Freja'];
+  const NAMES = ['You', 'Lars', 'Mette', 'Sofie', 'Jens', 'Ida', 'Mads', 'Freja'];
   const FACE = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
   const rankName = r => FACE[r] || String(r);
   const label = c => rankName(c.rank) + c.suit;
@@ -19,7 +19,11 @@
 
   // "You take" vs "Mette takes"
   const say = (g, p, you, other) => (p === 0 ? 'You ' + you : g.players[p].name + ' ' + other);
-  const log = (g, text) => g.log.push(text);
+  const log = (g, text, p = null) => g.log.push({ text, p, t: Date.now() });
+  const listNames = (g, ps) => {
+    const names = ps.map(p => g.players[p].name);
+    return names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
+  };
 
   function createGame(numPlayers, rng = Math.random) {
     const n = Math.max(2, Math.min(8, numPlayers | 0));
@@ -29,31 +33,41 @@
     const players = [];
     for (let i = 0; i < n; i++) players.push({ name: NAMES[i], human: i === 0, hand: [], pile: [], out: false });
     for (let k = 0; k < 3; k++) for (const pl of players) pl.hand.push(deck.pop());
-    const leader = Math.floor(rng() * n);
     const g = {
       n, rng, players, deck,
       trumpCard: deck[0], // bottom card of the deck, hidden until round 1 ends
       trumpOwner: null, trumpSuit: null,
-      round: 1, turn: leader,
-      r1: { leader, responder: (leader + 1) % n, phase: 'lead', lead: null },
+      round: 1, turn: 0, r1: null,
       stack: [], discard: [], lastTrick: null,
       finishOrder: [], over: false, loser: null, log: [],
     };
-    log(g, say(g, leader, 'start round 1.', 'starts round 1.'));
+    const leader = Math.floor(rng() * n);
+    log(g, say(g, leader, 'start round 1.', 'starts round 1.'), leader);
+    startTrick(g, leader);
     return g;
   }
 
   // ---------- Round 1: collecting ----------
+  // Everyone lays one card, clockwise from the leader. When all have laid, the highest card takes
+  // the stack. If several share the highest rank, only they battle: they lay again until one wins.
 
   // The last card (the trump) can never be gambled.
   const canGamble = g => g.round === 1 && g.deck.length >= 2;
+  const canAct = (g, p) => g.players[p].hand.length > 0 || canGamble(g);
+
+  function startTrick(g, leader) {
+    const order = [];
+    for (let i = 0; i < g.n; i++) order.push((leader + i) % g.n);
+    g.r1 = { leader, order, idx: 0, plays: [], battle: 0 };
+    g.turn = leader;
+  }
 
   function drawCard(g, p) {
     if (g.deck.length >= 2) g.players[p].hand.push(g.deck.pop());
     else if (g.deck.length === 1) {
       g.deck.pop();
       g.trumpOwner = p;
-      log(g, say(g, p, 'get', 'gets') + ' the last card: the hidden trump. It is revealed after round 1.');
+      log(g, say(g, p, 'get', 'gets') + ' the last card: the hidden trump. It is revealed after round 1.', p);
     }
   }
 
@@ -71,48 +85,45 @@
       card = pl.hand.splice(i, 1)[0];
       drawCard(g, p);
     }
-    g.stack.push({ card, by: p, gambled });
-    g.lastTrick = null;
-    log(g, say(g, p, gambled ? 'gamble and flip' : 'play', gambled ? 'gambles and flips' : 'plays') + ' ' + label(card) + '.');
-
     const r1 = g.r1;
-    if (r1.phase === 'lead') {
-      r1.lead = card;
-      r1.phase = 'answer';
-      g.turn = r1.responder;
-    } else if (card.rank === r1.lead.rank) {
-      log(g, 'Same rank: ' + g.players[r1.leader].name + ' and ' + g.players[r1.responder].name + ' battle on!');
-      r1.phase = 'lead';
-      g.turn = r1.leader;
-    } else {
-      awardR1(g, card.rank > r1.lead.rank ? r1.responder : r1.leader);
-      return;
-    }
-    settleR1(g);
+    const entry = { card, by: p, gambled, battle: r1.battle }; // battle: 0 = normal lay, 1+ = battle round
+    g.stack.push(entry);
+    r1.plays.push(entry);
+    g.lastTrick = null;
+    log(g, say(g, p, gambled ? 'gamble and flip' : 'play', gambled ? 'gambles and flips' : 'plays') + ' ' + label(card) + '.', p);
+    r1.idx++;
+    if (r1.idx < r1.order.length) g.turn = r1.order[r1.idx];
+    else resolveTrick(g);
+  }
+
+  function resolveTrick(g) {
+    const r1 = g.r1;
+    const top = Math.max(...r1.plays.map(e => e.card.rank));
+    const tied = r1.plays.filter(e => e.card.rank === top).map(e => e.by);
+    if (tied.length === 1) return awardR1(g, tied[0]);
+    // After the deck is gone a tied player may have nothing left to battle with.
+    const fighters = tied.filter(p => canAct(g, p));
+    if (fighters.length <= 1) return awardR1(g, fighters.length ? fighters[0] : tied[0]);
+    log(g, 'Battle! ' + listNames(g, fighters) + ' tied with ' + rankName(top) + '. They lay again, and the highest takes all.');
+    r1.order = fighters;
+    r1.idx = 0;
+    r1.plays = [];
+    r1.battle++;
+    g.turn = fighters[0];
   }
 
   function awardR1(g, w) {
     g.players[w].pile.push(...g.stack.map(e => e.card));
     g.lastTrick = { entries: g.stack, winner: w };
-    log(g, say(g, w, 'take', 'takes') + ' the stack (' + g.stack.length + ' cards).');
+    log(g, say(g, w, 'take', 'takes') + ' the stack (' + g.stack.length + ' cards).', w);
     g.stack = [];
     if (g.deck.length === 0) return endRound1(g);
-    // The winner of a battle continues and leads the next one.
-    g.r1 = { leader: w, responder: (w + 1) % g.n, phase: 'lead', lead: null };
-    g.turn = w;
-    settleR1(g);
-  }
-
-  // Once the deck is gone, a player can run out of cards mid-battle. Then the other side wins it.
-  function settleR1(g) {
-    if (g.round !== 1 || g.players[g.turn].hand.length || canGamble(g)) return;
-    const r1 = g.r1;
-    if (g.stack.length) awardR1(g, g.turn === r1.leader ? r1.responder : r1.leader);
-    else endRound1(g);
+    startTrick(g, w); // the winner starts the next round of cards
   }
 
   function endRound1(g) {
     g.round = 2;
+    g.r1 = null;
     g.trumpSuit = g.trumpCard.suit;
     for (const pl of g.players) {
       pl.hand = pl.pile.concat(pl.hand);
@@ -120,7 +131,7 @@
     }
     g.players[g.trumpOwner].hand.push(g.trumpCard);
     g.stack = [];
-    log(g, 'Round 1 over! The trump is ' + label(g.trumpCard) + '. ' + say(g, g.trumpOwner, 'have it and start round 2.', 'has it and starts round 2.'));
+    log(g, 'Round 1 over! The trump is ' + label(g.trumpCard) + '. ' + say(g, g.trumpOwner, 'have it and start round 2.', 'has it and starts round 2.'), g.trumpOwner);
     g.players.forEach((pl, i) => {
       if (!pl.hand.length) { pl.out = true; g.finishOrder.push(i); }
     });
@@ -137,8 +148,7 @@
 
   function legalCards(g, p) {
     const hand = g.players[p].hand;
-    if (g.round !== 2) return hand.slice();
-    if (!g.stack.length) return hand.slice();
+    if (g.round !== 2 || !g.stack.length) return hand.slice();
     const top = g.stack[g.stack.length - 1].card;
     return hand.filter(c => beats(c, top, g.trumpSuit));
   }
@@ -161,11 +171,11 @@
     pl.hand.splice(pl.hand.indexOf(card), 1);
     g.stack.push({ card, by: p });
     g.lastTrick = null;
-    log(g, say(g, p, 'play', 'plays') + ' ' + label(card) + '.');
+    log(g, say(g, p, 'play', 'plays') + ' ' + label(card) + '.', p);
     if (!pl.hand.length) {
       pl.out = true;
       g.finishOrder.push(p);
-      log(g, say(g, p, 'are', 'is') + ' out of cards. Safe!');
+      log(g, say(g, p, 'are', 'is') + ' out of cards. Safe!', p);
     }
     if (checkOver(g)) return;
     if (g.stack.length >= before) {
@@ -186,7 +196,7 @@
     const e = g.stack.shift(); // the first card laid on the stack
     g.players[p].hand.push(e.card);
     g.lastTrick = null;
-    log(g, say(g, p, 'pick up', 'picks up') + ' ' + label(e.card) + '.');
+    log(g, say(g, p, 'pick up', 'picks up') + ' ' + label(e.card) + '.', p);
     g.turn = nextActive(g, p);
   }
 
@@ -196,7 +206,7 @@
     if (left.length > 1) return false;
     g.over = true;
     g.loser = left.length ? left[0] : null;
-    if (g.loser !== null) log(g, say(g, g.loser, 'are', 'is') + ' left holding cards and loses the game!');
+    if (g.loser !== null) log(g, say(g, g.loser, 'are', 'is') + ' left holding cards and loses the game!', g.loser);
     return true;
   }
 
@@ -210,26 +220,29 @@
       const hand = pl.hand.slice().sort((a, b) => a.rank - b.rank);
       const gamble = canGamble(g);
       if (!hand.length) return 'gamble';
-      if (g.r1.phase === 'lead') {
+      const r1 = g.r1, plays = r1.plays;
+      const lowest = hand[0], highest = hand[hand.length - 1];
+      if (!plays.length) {
+        if (r1.battle) return highest.id; // battles are over good stacks: go for it
         // Hand full of good cards? Risk the deck instead of giving one away.
-        if (gamble && hand[0].rank >= 12 && rng() < 0.6) return 'gamble';
-        return hand[0].id;
+        if (gamble && lowest.rank >= 12 && rng() < 0.6) return 'gamble';
+        return lowest.id;
       }
-      const top = g.r1.lead.rank;
+      const best = Math.max(...plays.map(e => e.card.rank));
+      const last = r1.idx === r1.order.length - 1;
       const value = g.stack.reduce((s, e) => s + worth(e.card), 0);
-      const winner = hand.find(c => c.rank > top); // cheapest winning card
-      if (value >= 3 || g.stack.length >= 4) {
-        if (winner) return winner.id;
-        const tie = hand.find(c => c.rank === top);
-        if (tie) return tie.id;
-        if (gamble && rng() < 0.5) return 'gamble';
-        return hand[0].id;
+      if (r1.battle || value >= 3 || g.stack.length >= 4) {
+        if (last) {
+          const cheapest = hand.find(c => c.rank > best);
+          if (cheapest) return cheapest.id;
+        } else if (highest.rank > best) return highest.id;
+        if (gamble && rng() < 0.4) return 'gamble';
+        return lowest.id;
       }
       // Stack isn't worth it: lose on purpose with a low card.
-      const lower = hand.find(c => c.rank < top);
-      if (lower) return lower.id;
+      if (lowest.rank < best) return lowest.id;
       if (gamble && rng() < 0.5) return 'gamble';
-      return hand[0].id;
+      return lowest.id;
     }
     const isTrump = c => c.suit === g.trumpSuit;
     const legal = legalCards(g, p).sort((a, b) => isTrump(a) - isTrump(b) || a.rank - b.rank);

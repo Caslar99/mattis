@@ -4,148 +4,307 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mattis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --felt: #1f6b45; --felt-dark: #134a31; --card: #fdfdfb; --ink: #1d1d1f;
-    --red: #c62828; --gold: #f2c14e; --text: #f4f4f0; --panel: rgba(0,0,0,.18);
+    --gold: #f2b84b; --gold-2: #f7cd72; --gold-ink: #2d1f00;
+    --text: #f4efe6; --muted: rgba(244,239,230,.7);
+    --panel: rgba(14,20,17,.72); --panel-line: rgba(255,255,255,.1);
+    --green: #3ccf6e;
+    --hand-w: 110px; --mid-w: 92px; --fan-w: 40px;
+    --serif: 'Playfair Display', Georgia, serif;
   }
   * { box-sizing: border-box; }
+  html, body { margin: 0; }
   body {
-    margin: 0; min-height: 100vh; font-family: system-ui, -apple-system, sans-serif; color: var(--text);
-    background: radial-gradient(circle at 50% 25%, var(--felt), var(--felt-dark)) fixed;
+    min-height: 100vh; font-family: Inter, system-ui, sans-serif; color: var(--text);
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 48%, rgba(255,190,120,.10), transparent 70%),
+      radial-gradient(ellipse at 50% 40%, #3b2a1d 0%, #23180f 55%, #120c08 100%) fixed;
+    overflow-x: hidden;
   }
-  header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 16px; }
-  h1 { margin: 0; font-size: 1.35rem; letter-spacing: .04em; }
-  .controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  select, button {
-    border: 0; border-radius: 8px; padding: 8px 12px; font: inherit; font-size: .9rem; cursor: pointer;
-    background: rgba(255,255,255,.14); color: var(--text);
+  button, select, input { font: inherit; }
+  [hidden] { display: none !important; }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    padding: 12px 28px; background: rgba(8,12,10,.78); border-bottom: 1px solid var(--panel-line);
+    backdrop-filter: blur(6px); position: relative; z-index: 5;
   }
-  select option { color: #000; }
-  button:hover:not(:disabled) { background: rgba(255,255,255,.26); }
-  button:disabled { opacity: .35; cursor: default; }
-  button.primary { background: var(--gold); color: #3a2a00; font-weight: 600; }
-  button.primary:hover:not(:disabled) { background: #f7d27a; }
-  main { padding: 0 16px 24px; display: grid; gap: 14px; max-width: 1100px; margin: 0 auto; }
-
-  .status { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 14px; border-radius: 10px; background: var(--panel); }
-  .pill { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.15); }
-  .trump { font-weight: 600; }
-  .trump .suit { display: inline-block; background: var(--card); border-radius: 4px; padding: 0 5px; margin-left: 4px; color: var(--ink); }
-  .trump .suit.red { color: var(--red); }
-  .msg { flex: 1 1 260px; }
-  .msg.you { color: var(--gold); font-weight: 600; }
-
-  .seats { display: flex; flex-wrap: wrap; gap: 8px; }
-  .seat { padding: 8px 12px; border-radius: 10px; background: var(--panel); min-width: 120px; border: 2px solid transparent; transition: border-color .2s; }
-  .seat.turn { border-color: var(--gold); }
-  .seat.out { opacity: .5; }
-  .seat .name { font-weight: 700; display: flex; gap: 6px; align-items: center; }
-  .seat .meta { font-size: .8rem; opacity: .85; margin-top: 2px; }
-  .tag { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 999px; background: var(--gold); color: #3a2a00; }
-  .tag.dim { background: rgba(255,255,255,.2); color: var(--text); }
-
-  .table { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; padding: 12px; border-radius: 12px; background: var(--panel); min-height: 160px; }
-  .zone { display: flex; flex-direction: column; gap: 6px; }
-  .zone.grow { flex: 1 1 260px; }
-  .label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; opacity: .75; }
-  .count { font-size: .78rem; opacity: .8; }
-  .deckwrap { position: relative; width: 96px; height: 100px; }
-  .deckwrap .trumpcard { position: absolute; left: 24px; top: 14px; transform: rotate(90deg); }
-  .deckwrap .top { position: absolute; left: 0; top: 0; }
-  .empty-slot { width: 64px; height: 92px; border-radius: 8px; border: 2px dashed rgba(255,255,255,.3); }
-
-  .stack { display: flex; flex-wrap: wrap; gap: 8px; min-height: 112px; }
-  .stack.faded { opacity: .55; }
-  .played { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: .72rem; }
-  .caption { font-size: .85rem; opacity: .9; min-height: 1.2em; }
-
-  .hand { display: flex; flex-wrap: wrap; gap: 8px; min-height: 100px; padding: 6px; border-radius: 10px; background: var(--panel); }
-  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-
-  .card {
-    width: 64px; height: 92px; border-radius: 8px; background: var(--card); color: var(--ink); flex: none;
-    box-shadow: 0 2px 6px rgba(0,0,0,.35); position: relative; user-select: none; transition: transform .12s, opacity .12s;
+  .brand { display: flex; align-items: center; gap: 12px; font-family: var(--serif); font-size: 2.1rem; font-weight: 700; letter-spacing: .01em; }
+  .brand .spade { font-size: 2.2rem; line-height: 1; }
+  .controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .controls label { color: var(--text); font-weight: 500; }
+  .select, .btn {
+    height: 46px; border-radius: 10px; padding: 0 18px; border: 1px solid var(--panel-line);
+    background: rgba(255,255,255,.06); color: var(--text); font-weight: 500; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 10px;
   }
-  .card.red { color: var(--red); }
-  .card .corner { position: absolute; top: 4px; left: 6px; font-weight: 700; line-height: 1; font-size: .9rem; text-align: center; }
-  .card .corner.br { top: auto; left: auto; bottom: 4px; right: 6px; transform: rotate(180deg); }
-  .card .pip { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.7rem; }
-  .card.back { background: repeating-linear-gradient(45deg, #8e1b1b 0 6px, #a82424 6px 12px); border: 4px solid var(--card); }
-  .card.trump-suit { box-shadow: 0 0 0 3px var(--gold), 0 2px 6px rgba(0,0,0,.35); }
-  .card.playable { cursor: pointer; }
-  .card.playable:hover { transform: translateY(-6px); }
-  .card.dim { opacity: .45; }
+  .select { appearance: none; padding-right: 40px; background-image: linear-gradient(45deg, transparent 50%, var(--text) 50%), linear-gradient(135deg, var(--text) 50%, transparent 50%);
+    background-position: calc(100% - 20px) 20px, calc(100% - 15px) 20px; background-size: 5px 5px; background-repeat: no-repeat; }
+  .select option { color: #000; }
+  .btn:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.gold { background: linear-gradient(180deg, var(--gold-2), var(--gold)); color: var(--gold-ink); border: 0; font-weight: 600; box-shadow: 0 6px 18px rgba(242,184,75,.25); }
+  .btn.gold:hover:not(:disabled) { filter: brightness(1.06); }
 
-  .log { font-size: .82rem; padding: 10px 14px; border-radius: 10px; background: var(--panel); max-height: 180px; overflow-y: auto; }
-  .log div { padding: 2px 0; opacity: .7; }
-  .log div:first-child { opacity: 1; font-weight: 600; }
+  /* ---------- Stage ---------- */
+  .stage { position: relative; padding: 14px 16px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .status {
+    align-self: center; display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 6px 16px;
+    padding: 9px 22px; border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-line);
+    box-shadow: 0 6px 20px rgba(0,0,0,.35); max-width: 100%; z-index: 3;
+  }
+  .status .round { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; }
+  .status .round span { color: var(--muted); font-weight: 600; }
+  .status .sep { width: 1px; height: 22px; background: var(--panel-line); }
+  .status .trump { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: .92rem; }
+  .status .trump .diamond { color: var(--gold); }
+  .status .trump .suit { background: #fff; border-radius: 4px; padding: 0 6px; color: #111; }
+  .status .trump .suit.red { color: #c62828; }
+  .status .msg { font-size: .92rem; }
+  .status .msg.you { color: var(--gold-2); font-weight: 600; }
 
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: grid; place-items: center; padding: 16px; z-index: 10; }
+  /* Table */
+  .tablebox { position: relative; }
+  .rim {
+    position: absolute; inset: 0; border-radius: 50%; padding: 22px;
+    background: linear-gradient(160deg, #8a5630 0%, #4a2a15 30%, #6e4224 55%, #3a2010 80%, #7b4b29 100%);
+    box-shadow: 0 40px 90px rgba(0,0,0,.65), inset 0 2px 3px rgba(255,220,180,.35), inset 0 -4px 8px rgba(0,0,0,.5);
+  }
+  .felt {
+    width: 100%; height: 100%; border-radius: 50%; position: relative;
+    background:
+      radial-gradient(ellipse at 50% 42%, #2f8253 0%, #1d633d 50%, #12452a 100%);
+    box-shadow: inset 0 0 70px rgba(0,0,0,.6), inset 0 0 0 2px rgba(0,0,0,.35);
+  }
+  .felt::before { /* subtle felt texture */
+    content: ''; position: absolute; inset: 0; border-radius: 50%; opacity: .18; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .felt::after { content: ''; position: absolute; inset: 24% 26%; border-radius: 50%; border: 1px solid rgba(255,255,255,.09); }
+
+  /* Seats */
+  .seats { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .seat { display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 2; }
+  .chip {
+    display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 14px;
+    background: var(--panel); border: 1px solid var(--panel-line); box-shadow: 0 6px 18px rgba(0,0,0,.35);
+    transition: box-shadow .2s, border-color .2s;
+  }
+  .seat.turn .chip, .me.turn .chip { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(242,184,75,.35), 0 0 24px rgba(242,184,75,.35); }
+  .seat.out { opacity: .55; }
+  .avatar { width: 50px; height: 50px; border-radius: 50%; flex: none; overflow: hidden; display: grid; place-items: center;
+    border: 2px solid rgba(255,255,255,.75); font-weight: 700; color: #fff; }
+  .avatar img { width: 100%; height: 100%; display: block; }
+  .chip .who { display: flex; flex-direction: column; align-items: center; min-width: 96px; }
+  .chip .name { display: flex; white-space: nowrap; align-items: center; gap: 8px; font-family: var(--serif); font-weight: 600; font-size: 1.12rem; }
+  .chip .meta { font-size: .82rem; color: var(--muted); white-space: nowrap; }
+  .tag { font-family: Inter, sans-serif; font-size: .62rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 6px; background: #1f8a4c; color: #e9ffef; }
+  .tag.battle { background: #c2410c; color: #fff1e6; }
+  .tag.safe { background: var(--gold); color: var(--gold-ink); }
+  .tag.lose { background: #b91c1c; color: #fff; }
+  .tag.trump { background: #6d28d9; color: #f3e8ff; }
+
+  .fan { display: flex; justify-content: center; height: calc(var(--fan-w) * 1.45 + 8px); align-items: flex-end; }
+  .fan img { width: var(--fan-w); border-radius: 4px; box-shadow: 0 3px 8px rgba(0,0,0,.45); margin-left: calc(var(--fan-w) * -.45); transform-origin: 50% 120%; }
+  .fan img:first-child { margin-left: 0; }
+  .fan .more { align-self: center; margin-left: 8px; font-size: .78rem; color: var(--muted); }
+
+  /* Cards */
+  .card { position: relative; flex: none; border-radius: 7%; transition: transform .15s ease, box-shadow .15s ease, opacity .15s; }
+  .card img { display: block; width: 100%; border-radius: 6%; box-shadow: 0 6px 16px rgba(0,0,0,.45); pointer-events: none; user-select: none; }
+  .card.trump-suit::after { content: ''; position: absolute; inset: -3px; border-radius: 9%; border: 3px solid var(--gold); pointer-events: none; }
+
+  /* Center */
+  .center { display: flex; align-items: flex-start; justify-content: center; gap: 28px; z-index: 1; }
+  .deck { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .pile { position: relative; width: calc(var(--mid-w) + 10px); height: calc(var(--mid-w) * 1.45 + 10px); }
+  .pile .card { position: absolute; width: var(--mid-w); }
+  .pile .peek { left: calc(var(--mid-w) * .35); top: calc(var(--mid-w) * .22); transform: rotate(90deg); }
+  .pile .peek img { box-shadow: 0 2px 6px rgba(0,0,0,.5); }
+  .deck .count { font-size: .85rem; text-align: center; color: var(--text); line-height: 1.3; }
+  .deck .count small { color: var(--muted); font-size: .78rem; }
+  .divider { width: 1px; align-self: stretch; background: rgba(255,255,255,.12); margin: 6px 0 30px; }
+  .trick { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: var(--mid-w); }
+  .trick-cards { display: flex; justify-content: center; align-items: flex-start; min-height: calc(var(--mid-w) * 1.45 + 30px); }
+  .trick-cards.faded { opacity: .55; }
+  .played { display: flex; flex-direction: column; align-items: center; gap: 6px; width: var(--mid-w); flex: none; }
+  .played .card { width: var(--mid-w); }
+  .played .by { font-size: .78rem; padding: 3px 10px; border-radius: 8px; background: rgba(0,0,0,.45); white-space: nowrap; max-width: var(--label-w, 100%); overflow: hidden; text-overflow: ellipsis; }
+  .played.tight .by { align-self: flex-start; }
+  .played .by.battle { background: rgba(194,65,12,.85); }
+  .trick .caption { font-size: .85rem; color: var(--text); text-align: center; min-height: 1.2em; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .empty { width: var(--mid-w); height: calc(var(--mid-w) * 1.45); border: 2px dashed rgba(255,255,255,.22); border-radius: 8px; }
+
+  /* You */
+  .me { display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 3; }
+  .me .chip { padding: 4px 18px 4px 4px; }
+  .me .chip .avatar { width: 44px; height: 44px; }
+  .hand { display: flex; justify-content: center; width: 100%; max-width: 860px; min-height: calc(var(--hand-w) * 1.45); padding-top: 14px; }
+  .hand .card { width: var(--hand-w); cursor: default; }
+  .hand .card.playable { cursor: pointer; }
+  .hand .card.playable:hover { transform: translateY(-10px); }
+  .hand .card.selected { transform: translateY(-16px); }
+  .hand .card.selected::before { content: ''; position: absolute; inset: -4px; border-radius: 9%; border: 3px solid var(--gold); box-shadow: 0 0 18px rgba(242,184,75,.6); pointer-events: none; z-index: 1; }
+  .hand .card.dim { filter: brightness(.55) saturate(.5); }
+  .handcount { font-size: .85rem; color: var(--muted); }
+  .actions { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .actions .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .play-btn { min-width: 260px; height: 54px; justify-content: center; font-size: 1.15rem; font-family: var(--serif); border-radius: 12px; }
+  .check { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 500; user-select: none; }
+  .check input { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; }
+  .check.disabled { opacity: .45; cursor: default; }
+  .help { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--muted); color: var(--muted); display: inline-grid; place-items: center; font-size: .72rem; cursor: help; }
+
+  /* Side panels */
+  .side { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .panel { background: var(--panel); border: 1px solid var(--panel-line); border-radius: 14px; padding: 16px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  .panel h3 { margin: 0 0 10px; font-family: var(--serif); font-size: 1.12rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .moves ol { list-style: none; margin: 0; padding: 0; position: relative; }
+  .moves li { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: baseline; padding: 6px 0; font-size: .9rem; }
+  .moves li .dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.4); transform: translateY(-1px); }
+  .moves li.you .dot { background: var(--green); }
+  .moves li .time { font-size: .78rem; color: var(--muted); }
+  .scores .row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; }
+  .scores .row + .row { border-top: 1px solid var(--panel-line); }
+  .scores .row.top { background: rgba(255,255,255,.07); border: 1px solid var(--panel-line); }
+  .scores .row .avatar { width: 36px; height: 36px; }
+  .scores .row .nm { flex: 1; font-weight: 500; }
+  .scores .row .num { font-family: var(--serif); font-weight: 700; font-size: 1.15rem; }
+
+  /* Overlays */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 16px; z-index: 20; backdrop-filter: blur(3px); }
   .overlay[hidden] { display: none; }
-  .modal { background: #fffdf6; color: var(--ink); border-radius: 14px; padding: 22px; max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; }
-  .modal h2 { margin-top: 0; }
-  .modal h3 { margin-bottom: 4px; }
-  .modal p, .modal li { line-height: 1.45; }
-  .modal button { background: var(--felt); color: #fff; }
-  .modal button:hover:not(:disabled) { background: var(--felt-dark); }
+  .modal { background: #18201b; border: 1px solid var(--panel-line); border-radius: 16px; padding: 26px; max-width: 560px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+  .modal h2 { margin: 0 0 10px; font-family: var(--serif); font-size: 1.7rem; }
+  .modal h3 { font-family: var(--serif); margin: 18px 0 6px; color: var(--gold-2); }
+  .modal p, .modal li { line-height: 1.5; color: #e7e2d8; }
+  .modal ul { padding-left: 20px; margin: 0; }
+  .modal .credit { font-size: .75rem; color: var(--muted); margin-top: 18px; }
+  .modal .credit a { color: var(--muted); }
 
-  @media (max-width: 520px) {
-    .card { width: 50px; height: 72px; }
-    .card .pip { font-size: 1.3rem; }
-    .card .corner { font-size: .78rem; }
-    .empty-slot { width: 50px; height: 72px; }
-    .deckwrap { width: 80px; height: 80px; }
-    .deckwrap .trumpcard { left: 20px; top: 8px; }
-    .seat { min-width: 0; flex: 1 1 40%; }
+  /* ---------- Wide screens: oval table with seats around it ---------- */
+  @media (min-width: 1000px) {
+    .stage { height: max(800px, calc(100vh - 71px)); padding: 0; display: block; }
+    .status { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; max-width: 94%; }
+    .tablebox { position: absolute; top: 74px; left: 50%; transform: translateX(-50%); width: min(1320px, 92vw); bottom: 150px; }
+    .seats { position: absolute; inset: 0; display: block; }
+    .seat { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); }
+    .center { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); max-width: 56%; }
+    .me { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(860px, 60vw); }
+    .side { display: contents; }
+    .panel { position: absolute; bottom: 24px; width: 300px; z-index: 4; }
+    .panel.moves { left: 24px; }
+    .panel.scores { right: 24px; }
+  }
+  @media (min-width: 1000px) and (max-width: 1399px) {
+    :root { --hand-w: 96px; --mid-w: 80px; --fan-w: 34px; }
+    .panel { width: 240px; padding: 12px 14px; }
+    .moves li:nth-child(n+5) { display: none; }
+    .me { width: min(700px, 50vw); }
+  }
+  @media (min-width: 1000px) and (max-height: 860px) {
+    :root { --hand-w: 92px; --mid-w: 76px; --fan-w: 32px; }
+    .avatar { width: 42px; height: 42px; }
+  }
+
+  /* ---------- Narrow screens: stacked layout on a rounded felt ---------- */
+  @media (max-width: 999px) {
+    :root { --hand-w: 76px; --mid-w: 64px; --fan-w: 26px; }
+    .topbar { padding: 10px 16px; }
+    .brand { font-size: 1.6rem; }
+    .brand .spade { font-size: 1.6rem; }
+    .select, .btn { height: 40px; padding: 0 14px; }
+    .select { padding-right: 34px; background-position: calc(100% - 18px) 17px, calc(100% - 13px) 17px; }
+    .status { padding: 8px 14px; }
+    .status .sep { display: none; }
+    .tablebox { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
+    .rim, .felt, .felt::before { border-radius: 28px; }
+    .rim { padding: 10px; }
+    .felt::after { display: none; }
+    .seats, .center, .me { position: relative; }
+    .seat .chip { padding-right: 12px; }
+    .chip .who { min-width: 0; }
+    .avatar { width: 38px; height: 38px; }
+    .chip .name { font-size: 1rem; }
+    .center { gap: 14px; }
+    .play-btn { min-width: 200px; height: 48px; }
+  }
+  @media (max-width: 640px) {
+    .seats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .seat .fan { display: none; }
+    .seat .chip { width: 100%; padding: 5px 8px 5px 5px; gap: 8px; }
+    .chip .who { align-items: flex-start; }
+    .chip .meta { font-size: .72rem; }
+    .avatar { width: 32px; height: 32px; }
+  }
+  @media (max-width: 480px) {
+    :root { --hand-w: 64px; --mid-w: 54px; --fan-w: 22px; }
+    .controls label { display: none; }
   }
 </style>
 </head>
 <body>
-<header>
-  <h1>♠ Mattis</h1>
+<header class="topbar">
+  <div class="brand"><span class="spade">♠</span> Mattis</div>
   <div class="controls">
-    <label for="players" class="count">Players</label>
-    <select id="players"></select>
-    <button class="primary" id="newGame">New game</button>
-    <button id="rulesBtn">Rules</button>
+    <label for="players">Players</label>
+    <select id="players" class="select"></select>
+    <button class="btn gold" id="newGame">▶ New game</button>
+    <button class="btn" id="rulesBtn">📖 Rules</button>
   </div>
 </header>
 
-<main>
-  <section class="status">
-    <span class="pill" id="round"></span>
+<div class="stage">
+  <div class="status">
+    <span class="round" id="round"></span>
+    <span class="sep"></span>
     <span class="trump" id="trump"></span>
     <span class="msg" id="msg"></span>
-  </section>
+  </div>
 
-  <section class="seats" id="seats"></section>
-
-  <section class="table">
-    <div class="zone">
-      <span class="label" id="deckLabel">Deck</span>
-      <div class="deckwrap" id="deck"></div>
-      <span class="count" id="deckCount"></span>
+  <div class="tablebox">
+    <div class="rim"><div class="felt"></div></div>
+    <div class="seats" id="seats"></div>
+    <div class="center">
+      <div class="deck">
+        <div class="pile" id="pile"></div>
+        <div class="count" id="deckCount"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="trick">
+        <div class="trick-cards" id="trick"></div>
+        <div class="caption" id="caption"></div>
+      </div>
     </div>
-    <div class="zone grow">
-      <span class="label">Stack</span>
-      <div class="stack" id="stack"></div>
-      <span class="caption" id="caption"></span>
-    </div>
-  </section>
+  </div>
 
-  <section class="zone">
-    <span class="label" id="handLabel">Your hand</span>
+  <div class="me" id="me">
+    <div class="chip"><div class="avatar" id="myAvatar"></div><div class="who"><span class="name">You</span></div></div>
     <div class="hand" id="hand"></div>
+    <div class="handcount" id="handCount"></div>
     <div class="actions">
-      <button id="gamble">🎲 Gamble top card of deck</button>
-      <button id="pickup">Pick up first card</button>
-      <span class="count" id="myInfo"></span>
+      <div class="row">
+        <button class="btn gold play-btn" id="playBtn"></button>
+        <button class="btn" id="pickup">Pick up first card</button>
+      </div>
+      <label class="check" id="gambleWrap">
+        <input type="checkbox" id="gamble"> Gamble top card of deck
+        <span class="help" title="Instead of playing from your hand, flip the top card of the deck and play that. Your hand stays the same.">?</span>
+      </label>
     </div>
-  </section>
+  </div>
 
-  <section class="log" id="log"></section>
-</main>
+  <div class="side">
+    <aside class="panel moves"><h3>Recent moves</h3><ol id="moves"></ol></aside>
+    <aside class="panel scores"><h3 id="scoresTitle"></h3><div id="scores"></div></aside>
+  </div>
+</div>
 
 <div class="overlay" id="rules" hidden>
   <div class="modal">
@@ -153,12 +312,12 @@
     <p>Card order, lowest to highest: 2–10, J, Q, K, A. Play goes clockwise.</p>
     <h3>Round 1: Collecting</h3>
     <ul>
-      <li>Everyone always holds 3 cards. When you play one, you draw a new one.</li>
-      <li>Instead of playing from your hand, you can <b>gamble</b>: flip the top card of the deck and play that.</li>
-      <li>A battle is between two players. One lays a card and the next answers. A higher answer takes the whole stack, and a lower answer gives it to the first player.</li>
-      <li>Same rank? They battle on until one of them takes it all.</li>
-      <li>Don't want the stack? Play lower and lose on purpose.</li>
-      <li>Whoever takes the stack starts the next battle.</li>
+      <li>Everyone always holds 3 cards. When you lay one, you draw a new one.</li>
+      <li>Instead of laying from your hand, you can <b>gamble</b>: flip the top card of the deck and lay that.</li>
+      <li>Everyone lays one card. When all have laid, the <b>highest card takes the whole stack</b>.</li>
+      <li>If two or more tie on the highest card, only they <b>battle</b>: each lays another card, and the highest takes it all. Tie again? Battle again.</li>
+      <li>Don't want the stack? Lay low and let someone else take it.</li>
+      <li>Whoever takes the stack starts the next round.</li>
       <li>The last card in the deck is the hidden <b>trump</b>. Whoever would draw it gets it, revealed when the deck is gone.</li>
     </ul>
     <h3>Round 2: Get rid of your cards</h3>
@@ -169,7 +328,8 @@
       <li>When every player has laid a card, the stack goes out and whoever played last starts again.</li>
       <li>Run out of cards and you're safe. <b>The last player holding cards loses.</b></li>
     </ul>
-    <button id="closeRules">Got it</button>
+    <p class="credit">Card artwork: <a href="https://github.com/htdebeer/SVG-cards" target="_blank" rel="noopener">SVG-cards</a> by David Bellot and Huub de Beer (LGPL-2.1). Avatars: <a href="https://www.dicebear.com" target="_blank" rel="noopener">DiceBear</a>.</p>
+    <button class="btn gold" id="closeRules">Got it</button>
   </div>
 </div>
 
@@ -177,7 +337,7 @@
   <div class="modal">
     <h2 id="overTitle"></h2>
     <p id="overText"></p>
-    <button id="again">Play again</button>
+    <button class="btn gold" id="again">▶ Play again</button>
   </div>
 </div>
 
@@ -185,7 +345,13 @@
 <script>
 const M = window.Mattis;
 const $ = id => document.getElementById(id);
-let game, timer = null;
+let game, timer = null, selected = null;
+
+const SUIT_FILE = { '♠': 'spade', '♥': 'heart', '♦': 'diamond', '♣': 'club' };
+const RANK_FILE = { 11: 'jack', 12: 'queen', 13: 'king', 14: '1' };
+const cardSrc = c => `cards/${SUIT_FILE[c.suit]}_${RANK_FILE[c.rank] || c.rank}.png`;
+const AVATAR_BG = ['b6e3f4', 'c0aede', 'd1d4f9', 'ffd5dc', 'ffdfbf', 'c1f0c1', 'f9e2ae', 'bde0fe'];
+const COLORS = ['#3b82f6', '#a855f7', '#ec4899', '#f97316', '#14b8a6', '#eab308', '#ef4444', '#22c55e'];
 
 for (let n = 2; n <= 8; n++) $('players').add(new Option(n + ' players', n, n === 4, n === 4));
 try { const saved = localStorage.getItem('mattis-players'); if (saved) $('players').value = saved; } catch {}
@@ -195,34 +361,54 @@ function newGame() {
   const n = +$('players').value;
   try { localStorage.setItem('mattis-players', n); } catch {}
   game = M.createGame(n);
+  selected = null;
+  $('gamble').checked = false;
   $('over').hidden = true;
   render();
 }
 
-function cardEl(c, faceDown) {
+const nameOf = p => game.players[p].name;
+
+function avatarEl(p) {
   const el = document.createElement('div');
-  if (faceDown) { el.className = 'card back'; return el; }
-  el.className = 'card' + (M.isRed(c) ? ' red' : '') + (game.trumpSuit && c.suit === game.trumpSuit ? ' trump-suit' : '');
-  const r = M.rankName(c.rank);
-  el.innerHTML = `<div class="corner">${r}<br>${c.suit}</div><div class="pip">${c.suit}</div><div class="corner br">${r}<br>${c.suit}</div>`;
-  el.title = M.label(c);
+  el.className = 'avatar';
+  const name = game.players[p].name;
+  el.style.background = COLORS[p % COLORS.length];
+  const img = new Image();
+  img.alt = '';
+  img.src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(name + p)}&backgroundColor=${AVATAR_BG[p % AVATAR_BG.length]}`;
+  img.onerror = () => { img.remove(); el.textContent = name[0]; };
+  el.appendChild(img);
   return el;
 }
 
-const nameOf = p => game.players[p].name;
+function cardEl(c, faceDown) {
+  const el = document.createElement('div');
+  el.className = 'card' + (!faceDown && game.trumpSuit && c.suit === game.trumpSuit ? ' trump-suit' : '');
+  const img = new Image();
+  img.src = faceDown ? 'cards/back.png' : cardSrc(c);
+  img.alt = faceDown ? 'Face-down card' : M.label(c);
+  img.draggable = false;
+  el.appendChild(img);
+  if (!faceDown) el.title = M.label(c);
+  return el;
+}
 
 function statusMessage() {
   const g = game;
   if (g.over) return g.loser === 0 ? 'You were left holding cards. You lose!' : `${nameOf(g.loser)} is left holding cards and loses!`;
-  if (g.turn !== 0) return `${nameOf(g.turn)} is thinking…`;
+  if (g.turn !== 0) return g.round === 1 && g.r1.battle ? `Battle! ${nameOf(g.turn)} is laying…` : `${nameOf(g.turn)} is thinking…`;
   if (g.round === 1) {
     const r1 = g.r1;
-    if (r1.phase === 'lead') {
-      return g.stack.length
-        ? `Battle on! Lay another card against ${nameOf(r1.responder)}.`
-        : `Your turn: lay a card to start a battle with ${nameOf(r1.responder)}.`;
+    const best = bestPlay();
+    if (r1.battle) {
+      const others = r1.order.filter(p => p !== 0).map(nameOf).join(', ');
+      return best
+        ? `Battle! Beat ${M.label(best.card)} (${nameOf(best.by)}) to take it all.`
+        : `Battle with ${others}! Lay a card, and the highest takes it all.`;
     }
-    return `Answer ${nameOf(r1.leader)}'s ${M.label(r1.lead)}: higher takes the stack, lower gives it away, same rank battles on.`;
+    if (!best) return 'You start: lay a card. When everyone has laid, the highest card takes the stack.';
+    return `Highest so far: ${M.label(best.card)} (${nameOf(best.by)}). Beat it to take the stack, or lay lower to avoid it.`;
   }
   if (!g.stack.length) return 'Your lead: play any card.';
   const top = g.stack[g.stack.length - 1].card;
@@ -231,84 +417,97 @@ function statusMessage() {
     : `Beat ${M.label(top)} with a higher ${top.suit} or any trump (${g.trumpSuit}), or pick up the first card.`;
 }
 
+// Highest card laid so far in the current round of laying (round 1).
+function bestPlay() {
+  const plays = game.r1 ? game.r1.plays : [];
+  return plays.reduce((b, e) => (!b || e.card.rank > b.card.rank ? e : b), null);
+}
+
+function seatPositions(k) {
+  // Opponents sit clockwise from your left, over the top, to your right.
+  if (k === 1) return [[50, 14]];
+  return Array.from({ length: k }, (_, i) => {
+    const a = Math.PI * (1 + i / (k - 1));
+    return [50 + 41 * Math.cos(a), 50 + 38 * Math.sin(a)];
+  });
+}
+
 function render() {
   const g = game, me = g.players[0], myTurn = !g.over && g.turn === 0;
 
-  $('round').textContent = g.round === 1 ? 'Round 1 · Collecting' : 'Round 2 · Shed your cards';
+  // Status bar
+  $('round').innerHTML = g.over ? 'Game over' : g.round === 1 ? 'Round 1 <span>· Collecting</span>' : 'Round 2 <span>· Shed your cards</span>';
   $('trump').innerHTML = g.trumpSuit
-    ? `Trump:<span class="suit${M.isRed(g.trumpCard) ? ' red' : ''}">${g.trumpSuit}</span>`
-    : 'Trump: hidden';
+    ? `<span class="diamond">◆</span> Trump: <span class="suit${M.isRed(g.trumpCard) ? ' red' : ''}">${g.trumpSuit}</span>`
+    : '<span class="diamond">◆</span> Trump: hidden';
   $('msg').textContent = statusMessage();
   $('msg').className = 'msg' + (myTurn ? ' you' : '');
 
-  // Opponents in clockwise order
+  // Opponents
   const seats = $('seats');
   seats.innerHTML = '';
-  for (let i = 1; i < g.n; i++) seats.appendChild(seatEl(i));
-
-  // Deck + trump
-  const deck = $('deck');
-  deck.innerHTML = '';
-  if (g.round === 1) {
-    $('deckLabel').textContent = 'Deck';
-    if (g.deck.length) {
-      const t = cardEl(null, true); t.classList.add('trumpcard'); deck.appendChild(t);
-      if (g.deck.length > 1) { const top = cardEl(null, true); top.classList.add('top'); deck.appendChild(top); }
-    } else deck.innerHTML = '<div class="empty-slot"></div>';
-    $('deckCount').textContent = g.deck.length > 1 ? `${g.deck.length - 1} cards + hidden trump` : g.deck.length ? 'Only the trump left' : 'Empty';
-  } else {
-    $('deckLabel').textContent = 'Trump card';
-    deck.appendChild(cardEl(g.trumpCard));
-    $('deckCount').textContent = `${nameOf(g.trumpOwner)} got it`;
+  const pos = seatPositions(g.n - 1);
+  for (let i = 1; i < g.n; i++) {
+    const el = seatEl(i);
+    el.style.setProperty('--x', pos[i - 1][0] + '%');
+    el.style.setProperty('--y', pos[i - 1][1] + '%');
+    seats.appendChild(el);
   }
 
-  // Stack (or the last resolved one, faded)
-  const stack = $('stack');
-  stack.innerHTML = '';
-  const entries = g.stack.length ? g.stack : g.lastTrick ? g.lastTrick.entries : [];
-  stack.className = 'stack' + (!g.stack.length && g.lastTrick ? ' faded' : '');
-  for (const e of entries) {
+  // Deck / trump
+  const pile = $('pile');
+  pile.innerHTML = '';
+  if (g.round === 1) {
+    if (g.deck.length) {
+      const peek = cardEl(null, true); peek.classList.add('peek'); pile.appendChild(peek);
+      const layers = Math.min(4, Math.ceil((g.deck.length - 1) / 8));
+      for (let i = 0; i < layers; i++) {
+        const c = cardEl(null, true);
+        c.style.left = i * 2 + 'px'; c.style.top = (layers - i) * 2 + 'px';
+        pile.appendChild(c);
+      }
+    } else pile.innerHTML = '<div class="empty"></div>';
+    $('deckCount').innerHTML = g.deck.length > 1
+      ? `${g.deck.length - 1} cards<br><small>+ hidden trump</small>`
+      : g.deck.length ? 'Only the trump<br><small>is left</small>' : 'Deck empty';
+  } else {
+    const t = cardEl(g.trumpCard); pile.appendChild(t);
+    $('deckCount').innerHTML = `Trump card<br><small>${g.trumpOwner === 0 ? 'You' : nameOf(g.trumpOwner)} got it</small>`;
+  }
+
+  // Current stack, or the last one taken/cleared (faded) so you can see what happened
+  const trick = $('trick');
+  trick.innerHTML = '';
+  const showing = g.stack.length ? g.stack : g.lastTrick ? g.lastTrick.entries : [];
+  trick.className = 'trick-cards' + (!g.stack.length && g.lastTrick ? ' faded' : '');
+  const midW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mid-w')) || 90;
+  const box = document.querySelector('.tablebox').clientWidth;
+  const maxW = (window.innerWidth >= 1000 ? box * 0.56 : box - 28) - midW - 70; // room left beside the deck
+  const step = showing.length > 1 ? Math.min(midW + 10, Math.max(22, (maxW - midW) / (showing.length - 1))) : 0;
+  showing.forEach((e, i) => {
     const wrap = document.createElement('div');
     wrap.className = 'played';
+    if (i) wrap.style.marginLeft = (step - midW) + 'px';
+    // Overlapped cards only have `step` px visible, so keep their name label inside that.
+    if (i < showing.length - 1 && step < midW) { wrap.classList.add('tight'); wrap.style.setProperty('--label-w', (step - 4) + 'px'); }
     wrap.appendChild(cardEl(e.card));
-    wrap.appendChild(document.createTextNode(nameOf(e.by) + (e.gambled ? ' 🎲' : '')));
-    stack.appendChild(wrap);
-  }
+    const by = document.createElement('span');
+    by.className = 'by' + (e.battle ? ' battle' : '');
+    by.textContent = (e.battle ? '⚔ ' : '') + nameOf(e.by) + (e.gambled ? ' 🎲' : '');
+    wrap.appendChild(by);
+    trick.appendChild(wrap);
+  });
+  if (!showing.length) trick.innerHTML = '<div class="empty"></div>';
   let caption = '';
   if (!g.stack.length && g.lastTrick) {
     caption = g.lastTrick.cleared
       ? 'Everyone laid a card, so the stack went out.'
-      : `${nameOf(g.lastTrick.winner)} ${g.lastTrick.winner === 0 ? 'take' : 'takes'} these ${g.lastTrick.entries.length} cards.`;
-  } else if (!g.stack.length) caption = 'Empty';
+      : `${g.lastTrick.winner === 0 ? 'You take' : nameOf(g.lastTrick.winner) + ' takes'} these ${g.lastTrick.entries.length} cards.`;
+  } else if (g.round === 1 && g.r1.battle) caption = `⚔ Battle: ${g.r1.order.map(nameOf).join(' vs ')}`;
   $('caption').textContent = caption;
 
-  // Your hand
-  const legal = new Set(myTurn ? M.legalCards(g, 0).map(c => c.id) : []);
-  const order = M.SUITS;
-  const sorted = me.hand.slice().sort(g.round === 2
-    ? (a, b) => (a.suit === g.trumpSuit) - (b.suit === g.trumpSuit) || order.indexOf(a.suit) - order.indexOf(b.suit) || a.rank - b.rank
-    : (a, b) => a.rank - b.rank);
-  const hand = $('hand');
-  hand.innerHTML = '';
-  for (const c of sorted) {
-    const el = cardEl(c);
-    if (legal.has(c.id)) {
-      el.classList.add('playable');
-      el.addEventListener('click', () => humanMove(c.id));
-    } else if (myTurn) el.classList.add('dim');
-    hand.appendChild(el);
-  }
-  $('handLabel').textContent = me.out ? 'Your hand: out, you are safe!' : `Your hand (${me.hand.length})`;
-
-  $('gamble').hidden = g.round !== 1;
-  $('gamble').disabled = !(myTurn && M.canGamble(g));
-  $('pickup').hidden = g.round !== 2;
-  $('pickup').disabled = !(myTurn && g.stack.length);
-  $('myInfo').textContent = g.round === 1
-    ? `Collected: ${me.pile.length} cards` + (g.trumpOwner === 0 ? ' + the hidden trump' : '')
-    : '';
-
-  $('log').innerHTML = g.log.slice(-30).reverse().map(t => `<div>${t}</div>`).join('');
+  renderHand(myTurn);
+  renderPanels();
 
   if (g.over) showGameOver();
   else schedule();
@@ -318,23 +517,119 @@ function seatEl(i) {
   const g = game, pl = g.players[i];
   const el = document.createElement('div');
   el.className = 'seat' + (!g.over && g.turn === i ? ' turn' : '') + (pl.out ? ' out' : '');
+  const chip = document.createElement('div');
+  chip.className = 'chip';
+  chip.appendChild(avatarEl(i));
   let tags = '';
   if (g.round === 1 && !g.over) {
-    if (g.r1.leader === i) tags += '<span class="tag dim">leads</span>';
-    if (g.r1.responder === i) tags += '<span class="tag dim">answers</span>';
+    if (g.r1.battle && g.r1.order.includes(i)) tags += '<span class="tag battle">Battle</span>';
+    else if (g.r1.leader === i) tags += '<span class="tag">Leads</span>';
   }
-  if (g.trumpOwner === i && g.round === 1) tags += '<span class="tag dim">has trump</span>';
-  if (pl.out) tags += '<span class="tag">safe</span>';
-  if (g.over && g.loser === i) tags += '<span class="tag">loser</span>';
+  if (g.round === 1 && g.trumpOwner === i) tags += '<span class="tag trump">Trump</span>';
+  if (pl.out) tags += '<span class="tag safe">Safe</span>';
+  if (g.over && g.loser === i) tags += '<span class="tag lose">Loser</span>';
   const meta = g.round === 1
-    ? `Hand ${pl.hand.length} · Collected ${pl.pile.length}`
-    : `${pl.hand.length} card${pl.hand.length === 1 ? '' : 's'} left`;
-  el.innerHTML = `<div class="name">${pl.name} ${tags}</div><div class="meta">${meta}</div>`;
+    ? `${pl.hand.length} cards · ${pl.pile.length} collected`
+    : pl.out ? 'Out of cards' : `${pl.hand.length} card${pl.hand.length === 1 ? '' : 's'} left`;
+  const who = document.createElement('div');
+  who.className = 'who';
+  who.innerHTML = `<span class="name">${pl.name} ${tags}</span><span class="meta">${meta}</span>`;
+  chip.appendChild(who);
+  el.appendChild(chip);
+
+  const fan = document.createElement('div');
+  fan.className = 'fan';
+  const shown = Math.min(pl.hand.length, 5);
+  for (let k = 0; k < shown; k++) {
+    const img = new Image();
+    img.src = 'cards/back.png'; img.alt = '';
+    img.style.transform = `rotate(${(k - (shown - 1) / 2) * 9}deg)`;
+    fan.appendChild(img);
+  }
+  if (pl.hand.length > shown) fan.insertAdjacentHTML('beforeend', `<span class="more">+${pl.hand.length - shown}</span>`);
+  el.appendChild(fan);
   return el;
+}
+
+function renderHand(myTurn) {
+  const g = game, me = g.players[0];
+  $('me').className = 'me' + (myTurn ? ' turn' : '');
+  if (!$('myAvatar').childElementCount) $('myAvatar').replaceWith(Object.assign(avatarEl(0), { id: 'myAvatar' }));
+
+  const gambling = g.round === 1 && $('gamble').checked && M.canGamble(g);
+  const legal = new Set(myTurn && !gambling ? M.legalCards(g, 0).map(c => c.id) : []);
+  if (!legal.has(selected)) selected = null;
+
+  const order = M.SUITS;
+  const sorted = me.hand.slice().sort(g.round === 2
+    ? (a, b) => (a.suit === g.trumpSuit) - (b.suit === g.trumpSuit) || order.indexOf(a.suit) - order.indexOf(b.suit) || a.rank - b.rank
+    : (a, b) => a.rank - b.rank);
+  const hand = $('hand');
+  hand.innerHTML = '';
+  const cw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hand-w')) || 100;
+  const avail = hand.clientWidth || 600;
+  const step = sorted.length > 1 ? Math.min(cw + 12, (avail - cw) / (sorted.length - 1)) : 0;
+  sorted.forEach((c, i) => {
+    const el = cardEl(c);
+    if (i) el.style.marginLeft = (step - cw) + 'px';
+    if (legal.has(c.id)) {
+      el.classList.add('playable');
+      el.addEventListener('click', () => {
+        if (selected === c.id) humanMove(c.id); // click a selected card again to play it
+        else { selected = c.id; renderHand(true); }
+      });
+    } else if (myTurn && !gambling) el.classList.add('dim');
+    if (selected === c.id) el.classList.add('selected');
+    hand.appendChild(el);
+  });
+  $('handCount').textContent = me.out ? "You're out of cards. Safe!" : `${me.hand.length} card${me.hand.length === 1 ? '' : 's'}`;
+
+  const btn = $('playBtn');
+  const sel = selected && me.hand.find(c => c.id === selected);
+  if (g.over) { btn.textContent = 'Game over'; btn.disabled = true; }
+  else if (!myTurn) { btn.textContent = `Waiting for ${nameOf(g.turn)}…`; btn.disabled = true; }
+  else if (gambling) { btn.textContent = '🎲 Gamble top card'; btn.disabled = false; }
+  else if (sel) { btn.textContent = `♠ Play ${M.label(sel)}`; btn.disabled = false; }
+  else { btn.textContent = legal.size ? 'Select a card' : 'No card can beat it'; btn.disabled = true; }
+
+  $('pickup').hidden = g.round !== 2 || me.out;
+  $('pickup').disabled = !(myTurn && g.stack.length);
+  $('gambleWrap').hidden = g.round !== 1;
+  const canG = M.canGamble(g);
+  $('gamble').disabled = !canG;
+  if (!canG) $('gamble').checked = false;
+  $('gambleWrap').classList.toggle('disabled', !canG);
+}
+
+function renderPanels() {
+  const g = game;
+  const fmt = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  $('moves').innerHTML = g.log.slice(-7).reverse()
+    .map(e => `<li class="${e.p === 0 ? 'you' : ''}"><span class="dot"></span><span>${e.text}</span><span class="time">${fmt(e.t)}</span></li>`)
+    .join('');
+
+  const scores = $('scores');
+  scores.innerHTML = '';
+  const rows = g.players.map((pl, i) => ({ i, n: g.round === 1 ? pl.pile.length : pl.hand.length, out: pl.out }));
+  if (g.round === 1) {
+    $('scoresTitle').innerHTML = '🏆 Collected cards';
+    rows.sort((a, b) => b.n - a.n);
+  } else {
+    $('scoresTitle').innerHTML = '🂠 Cards left';
+    rows.sort((a, b) => a.n - b.n);
+  }
+  rows.forEach((r, idx) => {
+    const row = document.createElement('div');
+    row.className = 'row' + (idx === 0 && r.n > 0 && g.round === 1 ? ' top' : '');
+    row.appendChild(avatarEl(r.i));
+    row.insertAdjacentHTML('beforeend', `<span class="nm">${nameOf(r.i)}</span><span class="num">${r.out ? '✓' : r.n}</span>`);
+    scores.appendChild(row);
+  });
 }
 
 function humanMove(move) {
   if (game.over || game.turn !== 0) return;
+  selected = null;
   M.act(game, move);
   render();
 }
@@ -343,7 +638,7 @@ function schedule() {
   clearTimeout(timer);
   if (game.over || game.turn === 0) return;
   // Pause longer after a stack is taken or cleared so you can see what happened.
-  const delay = !game.stack.length && game.lastTrick ? 1500 : 800;
+  const delay = !game.stack.length && game.lastTrick ? 1700 : 850;
   timer = setTimeout(() => { M.act(game, M.aiMove(game)); render(); }, delay);
 }
 
@@ -354,16 +649,25 @@ function showGameOver() {
   $('overText').textContent = (g.loser === 0
     ? 'You were the last one holding cards.'
     : `${nameOf(g.loser)} was the last one holding cards.`) + ` Order out of cards: ${safe.join(', ')}.`;
-  setTimeout(() => { if (game === g) $('over').hidden = false; }, 900);
+  setTimeout(() => { if (game === g) $('over').hidden = false; }, 1000);
 }
 
 $('newGame').onclick = newGame;
 $('again').onclick = newGame;
-$('gamble').onclick = () => humanMove('gamble');
+$('playBtn').onclick = () => {
+  if (game.round === 1 && $('gamble').checked) humanMove('gamble');
+  else if (selected) humanMove(selected);
+};
+$('gamble').onchange = () => { selected = null; renderHand(!game.over && game.turn === 0); };
 $('pickup').onclick = () => humanMove('pickup');
 $('rulesBtn').onclick = () => { $('rules').hidden = false; };
 $('closeRules').onclick = () => { $('rules').hidden = true; };
 $('rules').addEventListener('click', e => { if (e.target.id === 'rules') $('rules').hidden = true; });
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { clearTimeout(timer); render(); }, 150); });
+
+// Preload card images so cards don't pop in mid-game
+for (const s of Object.values(SUIT_FILE)) for (const r of ['1', 2, 3, 4, 5, 6, 7, 8, 9, 10, 'jack', 'queen', 'king']) new Image().src = `cards/${s}_${r}.png`;
 
 newGame();
 </script>
