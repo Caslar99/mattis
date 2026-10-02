@@ -39,7 +39,7 @@
       trumpOwner: null, trumpSuit: null,
       round: 1, turn: 0, r1: null,
       lastDraw: null, // { p, id } of the card just drawn in round 1, or { p, trump: true }
-      stack: [], discard: [], lastTrick: null,
+      stack: [], discard: [], lastTrick: null, lays: 0,
       finishOrder: [], over: false, loser: null, log: [],
     };
     const leader = Math.floor(rng() * n);
@@ -111,6 +111,7 @@
     // After the deck is gone a tied player may have nothing left to battle with.
     const fighters = tied.filter(p => canAct(g, p));
     if (fighters.length <= 1) return awardR1(g, fighters.length ? fighters[0] : tied[0]);
+    r1.tiedIds = r1.plays.filter(e => e.card.rank === top).map(e => e.card.id);
     log(g, 'Battle! ' + listNames(g, fighters) + ' tied with ' + rankName(top) + '. They lay again, and the highest takes all.');
     r1.order = fighters;
     r1.idx = 0;
@@ -160,6 +161,28 @@
     return hand.filter(c => beats(c, top, g.trumpSuit));
   }
 
+  // A run: same suit, consecutive ranks going up, e.g. 5♥ 6♥ 7♥ 8♥.
+  function isRun(cards) {
+    for (let i = 1; i < cards.length; i++) {
+      if (cards[i].suit !== cards[0].suit || cards[i].rank !== cards[i - 1].rank + 1) return false;
+    }
+    return true;
+  }
+
+  // Check a round-2 play of one card or a run. Returns the cards sorted low to high, or null.
+  function checkPlay(g, p, cardIds) {
+    const hand = g.players[p].hand;
+    const cards = [...new Set(cardIds)].map(id => hand.find(c => c.id === id));
+    if (!cards.length || cards.some(c => !c)) return null;
+    cards.sort((a, b) => a.rank - b.rank);
+    if (!isRun(cards)) return null;
+    if (!legalCards(g, p).includes(cards[0])) return null; // the lowest card must beat the top card
+    return cards;
+  }
+
+  // Number of separate lays (a run counts as one) still on the stack.
+  const laysOnStack = g => new Set(g.stack.map(e => e.lay)).size;
+
   const activeCount = g => g.players.filter(pl => !pl.out).length;
   function nextActive(g, p) {
     for (let i = 1; i <= g.n; i++) {
@@ -169,23 +192,26 @@
     return p;
   }
 
-  function r2Play(g, p, cardId) {
+  function r2Play(g, p, cardIds) {
     if (g.over || g.round !== 2 || g.turn !== p) throw new Error('Not your turn');
     const pl = g.players[p];
-    const card = legalCards(g, p).find(c => c.id === cardId);
-    if (!card) throw new Error('That card cannot be played');
+    const cards = checkPlay(g, p, Array.isArray(cardIds) ? cardIds : [cardIds]);
+    if (!cards) throw new Error('Those cards cannot be played');
     const before = activeCount(g);
-    pl.hand.splice(pl.hand.indexOf(card), 1);
-    g.stack.push({ card, by: p });
+    const lay = ++g.lays;
+    for (const card of cards) {
+      pl.hand.splice(pl.hand.indexOf(card), 1);
+      g.stack.push({ card, by: p, lay });
+    }
     g.lastTrick = null;
-    log(g, say(g, p, 'play', 'plays') + ' ' + label(card) + '.', p);
+    log(g, say(g, p, 'play', 'plays') + ' ' + cards.map(label).join(' ') + (cards.length > 1 ? ' (a run!)' : '.'), p);
     if (!pl.hand.length) {
       pl.out = true;
       g.finishOrder.push(p);
       log(g, say(g, p, 'are', 'is') + ' out of cards. Safe!', p);
     }
     if (checkOver(g)) return;
-    if (g.stack.length >= before) {
+    if (laysOnStack(g) >= before) {
       // Everyone has laid a card: the stack goes out and the last player to lay starts the next one.
       g.lastTrick = { entries: g.stack, cleared: true, by: p };
       g.discard.push(...g.stack.map(e => e.card));
@@ -257,11 +283,17 @@
     // Usually lead the lowest card, but not always: always-lowest leads can pass the same
     // unbeatable cards around forever.
     if (!g.stack.length && rng() < 0.3) return legal[Math.floor(rng() * legal.length)].id;
+    // (a random lead stays a single card)
     const c = legal[0];
+    const run = [c];
+    // Shed more cards with a run when possible (save trump runs for the end game).
+    if (!isTrump(c) || pl.hand.length <= 5) {
+      for (let next; (next = pl.hand.find(h => h.suit === c.suit && h.rank === run[run.length - 1].rank + 1));) run.push(next);
+    }
     if (g.stack.length && isTrump(c) && !isTrump(g.stack[g.stack.length - 1].card) && c.rank >= 12 && pl.hand.length > 5 && rng() < 0.5) {
       return 'pickup'; // don't burn a big trump early on a cheap card
     }
-    return c.id;
+    return run.length > 1 ? run.map(x => x.id) : c.id;
   }
 
   function act(g, move) {
@@ -270,7 +302,7 @@
     return r2Play(g, g.turn, move);
   }
 
-  const api = { createGame, r1Play, r2Play, r2PickUp, legalCards, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
+  const api = { createGame, r1Play, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Mattis = api;
 })(typeof window !== 'undefined' ? window : globalThis);
