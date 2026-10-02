@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mattis</title>
+<style>
+  :root {
+    --felt: #1f6b45; --felt-dark: #134a31; --card: #fdfdfb; --ink: #1d1d1f;
+    --red: #c62828; --gold: #f2c14e; --text: #f4f4f0; --panel: rgba(0,0,0,.18);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; font-family: system-ui, -apple-system, sans-serif; color: var(--text);
+    background: radial-gradient(circle at 50% 25%, var(--felt), var(--felt-dark)) fixed;
+  }
+  header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 16px; }
+  h1 { margin: 0; font-size: 1.35rem; letter-spacing: .04em; }
+  .controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  select, button {
+    border: 0; border-radius: 8px; padding: 8px 12px; font: inherit; font-size: .9rem; cursor: pointer;
+    background: rgba(255,255,255,.14); color: var(--text);
+  }
+  select option { color: #000; }
+  button:hover:not(:disabled) { background: rgba(255,255,255,.26); }
+  button:disabled { opacity: .35; cursor: default; }
+  button.primary { background: var(--gold); color: #3a2a00; font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: #f7d27a; }
+  main { padding: 0 16px 24px; display: grid; gap: 14px; max-width: 1100px; margin: 0 auto; }
+
+  .status { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 14px; border-radius: 10px; background: var(--panel); }
+  .pill { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.15); }
+  .trump { font-weight: 600; }
+  .trump .suit { display: inline-block; background: var(--card); border-radius: 4px; padding: 0 5px; margin-left: 4px; color: var(--ink); }
+  .trump .suit.red { color: var(--red); }
+  .msg { flex: 1 1 260px; }
+  .msg.you { color: var(--gold); font-weight: 600; }
+
+  .seats { display: flex; flex-wrap: wrap; gap: 8px; }
+  .seat { padding: 8px 12px; border-radius: 10px; background: var(--panel); min-width: 120px; border: 2px solid transparent; transition: border-color .2s; }
+  .seat.turn { border-color: var(--gold); }
+  .seat.out { opacity: .5; }
+  .seat .name { font-weight: 700; display: flex; gap: 6px; align-items: center; }
+  .seat .meta { font-size: .8rem; opacity: .85; margin-top: 2px; }
+  .tag { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 999px; background: var(--gold); color: #3a2a00; }
+  .tag.dim { background: rgba(255,255,255,.2); color: var(--text); }
+
+  .table { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; padding: 12px; border-radius: 12px; background: var(--panel); min-height: 160px; }
+  .zone { display: flex; flex-direction: column; gap: 6px; }
+  .zone.grow { flex: 1 1 260px; }
+  .label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; opacity: .75; }
+  .count { font-size: .78rem; opacity: .8; }
+  .deckwrap { position: relative; width: 96px; height: 100px; }
+  .deckwrap .trumpcard { position: absolute; left: 24px; top: 14px; transform: rotate(90deg); }
+  .deckwrap .top { position: absolute; left: 0; top: 0; }
+  .empty-slot { width: 64px; height: 92px; border-radius: 8px; border: 2px dashed rgba(255,255,255,.3); }
+
+  .stack { display: flex; flex-wrap: wrap; gap: 8px; min-height: 112px; }
+  .stack.faded { opacity: .55; }
+  .played { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: .72rem; }
+  .caption { font-size: .85rem; opacity: .9; min-height: 1.2em; }
+
+  .hand { display: flex; flex-wrap: wrap; gap: 8px; min-height: 100px; padding: 6px; border-radius: 10px; background: var(--panel); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  .card {
+    width: 64px; height: 92px; border-radius: 8px; background: var(--card); color: var(--ink); flex: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,.35); position: relative; user-select: none; transition: transform .12s, opacity .12s;
+  }
+  .card.red { color: var(--red); }
+  .card .corner { position: absolute; top: 4px; left: 6px; font-weight: 700; line-height: 1; font-size: .9rem; text-align: center; }
+  .card .corner.br { top: auto; left: auto; bottom: 4px; right: 6px; transform: rotate(180deg); }
+  .card .pip { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.7rem; }
+  .card.back { background: repeating-linear-gradient(45deg, #8e1b1b 0 6px, #a82424 6px 12px); border: 4px solid var(--card); }
+  .card.trump-suit { box-shadow: 0 0 0 3px var(--gold), 0 2px 6px rgba(0,0,0,.35); }
+  .card.playable { cursor: pointer; }
+  .card.playable:hover { transform: translateY(-6px); }
+  .card.dim { opacity: .45; }
+
+  .log { font-size: .82rem; padding: 10px 14px; border-radius: 10px; background: var(--panel); max-height: 180px; overflow-y: auto; }
+  .log div { padding: 2px 0; opacity: .7; }
+  .log div:first-child { opacity: 1; font-weight: 600; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: grid; place-items: center; padding: 16px; z-index: 10; }
+  .overlay[hidden] { display: none; }
+  .modal { background: #fffdf6; color: var(--ink); border-radius: 14px; padding: 22px; max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { margin-top: 0; }
+  .modal h3 { margin-bottom: 4px; }
+  .modal p, .modal li { line-height: 1.45; }
+  .modal button { background: var(--felt); color: #fff; }
+  .modal button:hover:not(:disabled) { background: var(--felt-dark); }
+
+  @media (max-width: 520px) {
+    .card { width: 50px; height: 72px; }
+    .card .pip { font-size: 1.3rem; }
+    .card .corner { font-size: .78rem; }
+    .empty-slot { width: 50px; height: 72px; }
+    .deckwrap { width: 80px; height: 80px; }
+    .deckwrap .trumpcard { left: 20px; top: 8px; }
+    .seat { min-width: 0; flex: 1 1 40%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>♠ Mattis</h1>
+  <div class="controls">
+    <label for="players" class="count">Players</label>
+    <select id="players"></select>
+    <button class="primary" id="newGame">New game</button>
+    <button id="rulesBtn">Rules</button>
+  </div>
+</header>
+
+<main>
+  <section class="status">
+    <span class="pill" id="round"></span>
+    <span class="trump" id="trump"></span>
+    <span class="msg" id="msg"></span>
+  </section>
+
+  <section class="seats" id="seats"></section>
+
+  <section class="table">
+    <div class="zone">
+      <span class="label" id="deckLabel">Deck</span>
+      <div class="deckwrap" id="deck"></div>
+      <span class="count" id="deckCount"></span>
+    </div>
+    <div class="zone grow">
+      <span class="label">Stack</span>
+      <div class="stack" id="stack"></div>
+      <span class="caption" id="caption"></span>
+    </div>
+  </section>
+
+  <section class="zone">
+    <span class="label" id="handLabel">Your hand</span>
+    <div class="hand" id="hand"></div>
+    <div class="actions">
+      <button id="gamble">🎲 Gamble top card of deck</button>
+      <button id="pickup">Pick up first card</button>
+      <span class="count" id="myInfo"></span>
+    </div>
+  </section>
+
+  <section class="log" id="log"></section>
+</main>
+
+<div class="overlay" id="rules" hidden>
+  <div class="modal">
+    <h2>How to play Mattis</h2>
+    <p>Card order, lowest to highest: 2–10, J, Q, K, A. Play goes clockwise.</p>
+    <h3>Round 1: Collecting</h3>
+    <ul>
+      <li>Everyone always holds 3 cards. When you play one, you draw a new one.</li>
+      <li>Instead of playing from your hand, you can <b>gamble</b>: flip the top card of the deck and play that.</li>
+      <li>A battle is between two players. One lays a card and the next answers. A higher answer takes the whole stack, and a lower answer gives it to the first player.</li>
+      <li>Same rank? They battle on until one of them takes it all.</li>
+      <li>Don't want the stack? Play lower and lose on purpose.</li>
+      <li>Whoever takes the stack starts the next battle.</li>
+      <li>The last card in the deck is the hidden <b>trump</b>. Whoever would draw it gets it, revealed when the deck is gone.</li>
+    </ul>
+    <h3>Round 2: Get rid of your cards</h3>
+    <ul>
+      <li>Your collected cards (plus any left in your hand) become your hand. The trump holder starts.</li>
+      <li>Beat the top card with a higher card of the same suit, or with a trump. Over a trump you need a higher trump.</li>
+      <li>Can't or won't beat it? Pick up the <b>first</b> card laid on the stack.</li>
+      <li>When every player has laid a card, the stack goes out and whoever played last starts again.</li>
+      <li>Run out of cards and you're safe. <b>The last player holding cards loses.</b></li>
+    </ul>
+    <button id="closeRules">Got it</button>
+  </div>
+</div>
+
+<div class="overlay" id="over" hidden>
+  <div class="modal">
+    <h2 id="overTitle"></h2>
+    <p id="overText"></p>
+    <button id="again">Play again</button>
+  </div>
+</div>
+
+<script src="engine.js"></script>
+<script>
+const M = window.Mattis;
+const $ = id => document.getElementById(id);
+let game, timer = null;
+
+for (let n = 2; n <= 8; n++) $('players').add(new Option(n + ' players', n, n === 4, n === 4));
+try { const saved = localStorage.getItem('mattis-players'); if (saved) $('players').value = saved; } catch {}
+
+function newGame() {
+  clearTimeout(timer);
+  const n = +$('players').value;
+  try { localStorage.setItem('mattis-players', n); } catch {}
+  game = M.createGame(n);
+  $('over').hidden = true;
+  render();
+}
+
+function cardEl(c, faceDown) {
+  const el = document.createElement('div');
+  if (faceDown) { el.className = 'card back'; return el; }
+  el.className = 'card' + (M.isRed(c) ? ' red' : '') + (game.trumpSuit && c.suit === game.trumpSuit ? ' trump-suit' : '');
+  const r = M.rankName(c.rank);
+  el.innerHTML = `<div class="corner">${r}<br>${c.suit}</div><div class="pip">${c.suit}</div><div class="corner br">${r}<br>${c.suit}</div>`;
+  el.title = M.label(c);
+  return el;
+}
+
+const nameOf = p => game.players[p].name;
+
+function statusMessage() {
+  const g = game;
+  if (g.over) return g.loser === 0 ? 'You were left holding cards. You lose!' : `${nameOf(g.loser)} is left holding cards and loses!`;
+  if (g.turn !== 0) return `${nameOf(g.turn)} is thinking…`;
+  if (g.round === 1) {
+    const r1 = g.r1;
+    if (r1.phase === 'lead') {
+      return g.stack.length
+        ? `Battle on! Lay another card against ${nameOf(r1.responder)}.`
+        : `Your turn: lay a card to start a battle with ${nameOf(r1.responder)}.`;
+    }
+    return `Answer ${nameOf(r1.leader)}'s ${M.label(r1.lead)}: higher takes the stack, lower gives it away, same rank battles on.`;
+  }
+  if (!g.stack.length) return 'Your lead: play any card.';
+  const top = g.stack[g.stack.length - 1].card;
+  return top.suit === g.trumpSuit
+    ? `Beat ${M.label(top)} with a higher trump, or pick up the first card.`
+    : `Beat ${M.label(top)} with a higher ${top.suit} or any trump (${g.trumpSuit}), or pick up the first card.`;
+}
+
+function render() {
+  const g = game, me = g.players[0], myTurn = !g.over && g.turn === 0;
+
+  $('round').textContent = g.round === 1 ? 'Round 1 · Collecting' : 'Round 2 · Shed your cards';
+  $('trump').innerHTML = g.trumpSuit
+    ? `Trump:<span class="suit${M.isRed(g.trumpCard) ? ' red' : ''}">${g.trumpSuit}</span>`
+    : 'Trump: hidden';
+  $('msg').textContent = statusMessage();
+  $('msg').className = 'msg' + (myTurn ? ' you' : '');
+
+  // Opponents in clockwise order
+  const seats = $('seats');
+  seats.innerHTML = '';
+  for (let i = 1; i < g.n; i++) seats.appendChild(seatEl(i));
+
+  // Deck + trump
+  const deck = $('deck');
+  deck.innerHTML = '';
+  if (g.round === 1) {
+    $('deckLabel').textContent = 'Deck';
+    if (g.deck.length) {
+      const t = cardEl(null, true); t.classList.add('trumpcard'); deck.appendChild(t);
+      if (g.deck.length > 1) { const top = cardEl(null, true); top.classList.add('top'); deck.appendChild(top); }
+    } else deck.innerHTML = '<div class="empty-slot"></div>';
+    $('deckCount').textContent = g.deck.length > 1 ? `${g.deck.length - 1} cards + hidden trump` : g.deck.length ? 'Only the trump left' : 'Empty';
+  } else {
+    $('deckLabel').textContent = 'Trump card';
+    deck.appendChild(cardEl(g.trumpCard));
+    $('deckCount').textContent = `${nameOf(g.trumpOwner)} got it`;
+  }
+
+  // Stack (or the last resolved one, faded)
+  const stack = $('stack');
+  stack.innerHTML = '';
+  const entries = g.stack.length ? g.stack : g.lastTrick ? g.lastTrick.entries : [];
+  stack.className = 'stack' + (!g.stack.length && g.lastTrick ? ' faded' : '');
+  for (const e of entries) {
+    const wrap = document.createElement('div');
+    wrap.className = 'played';
+    wrap.appendChild(cardEl(e.card));
+    wrap.appendChild(document.createTextNode(nameOf(e.by) + (e.gambled ? ' 🎲' : '')));
+    stack.appendChild(wrap);
+  }
+  let caption = '';
+  if (!g.stack.length && g.lastTrick) {
+    caption = g.lastTrick.cleared
+      ? 'Everyone laid a card, so the stack went out.'
+      : `${nameOf(g.lastTrick.winner)} ${g.lastTrick.winner === 0 ? 'take' : 'takes'} these ${g.lastTrick.entries.length} cards.`;
+  } else if (!g.stack.length) caption = 'Empty';
+  $('caption').textContent = caption;
+
+  // Your hand
+  const legal = new Set(myTurn ? M.legalCards(g, 0).map(c => c.id) : []);
+  const order = M.SUITS;
+  const sorted = me.hand.slice().sort(g.round === 2
+    ? (a, b) => (a.suit === g.trumpSuit) - (b.suit === g.trumpSuit) || order.indexOf(a.suit) - order.indexOf(b.suit) || a.rank - b.rank
+    : (a, b) => a.rank - b.rank);
+  const hand = $('hand');
+  hand.innerHTML = '';
+  for (const c of sorted) {
+    const el = cardEl(c);
+    if (legal.has(c.id)) {
+      el.classList.add('playable');
+      el.addEventListener('click', () => humanMove(c.id));
+    } else if (myTurn) el.classList.add('dim');
+    hand.appendChild(el);
+  }
+  $('handLabel').textContent = me.out ? 'Your hand: out, you are safe!' : `Your hand (${me.hand.length})`;
+
+  $('gamble').hidden = g.round !== 1;
+  $('gamble').disabled = !(myTurn && M.canGamble(g));
+  $('pickup').hidden = g.round !== 2;
+  $('pickup').disabled = !(myTurn && g.stack.length);
+  $('myInfo').textContent = g.round === 1
+    ? `Collected: ${me.pile.length} cards` + (g.trumpOwner === 0 ? ' + the hidden trump' : '')
+    : '';
+
+  $('log').innerHTML = g.log.slice(-30).reverse().map(t => `<div>${t}</div>`).join('');
+
+  if (g.over) showGameOver();
+  else schedule();
+}
+
+function seatEl(i) {
+  const g = game, pl = g.players[i];
+  const el = document.createElement('div');
+  el.className = 'seat' + (!g.over && g.turn === i ? ' turn' : '') + (pl.out ? ' out' : '');
+  let tags = '';
+  if (g.round === 1 && !g.over) {
+    if (g.r1.leader === i) tags += '<span class="tag dim">leads</span>';
+    if (g.r1.responder === i) tags += '<span class="tag dim">answers</span>';
+  }
+  if (g.trumpOwner === i && g.round === 1) tags += '<span class="tag dim">has trump</span>';
+  if (pl.out) tags += '<span class="tag">safe</span>';
+  if (g.over && g.loser === i) tags += '<span class="tag">loser</span>';
+  const meta = g.round === 1
+    ? `Hand ${pl.hand.length} · Collected ${pl.pile.length}`
+    : `${pl.hand.length} card${pl.hand.length === 1 ? '' : 's'} left`;
+  el.innerHTML = `<div class="name">${pl.name} ${tags}</div><div class="meta">${meta}</div>`;
+  return el;
+}
+
+function humanMove(move) {
+  if (game.over || game.turn !== 0) return;
+  M.act(game, move);
+  render();
+}
+
+function schedule() {
+  clearTimeout(timer);
+  if (game.over || game.turn === 0) return;
+  // Pause longer after a stack is taken or cleared so you can see what happened.
+  const delay = !game.stack.length && game.lastTrick ? 1500 : 800;
+  timer = setTimeout(() => { M.act(game, M.aiMove(game)); render(); }, delay);
+}
+
+function showGameOver() {
+  const g = game;
+  const safe = g.finishOrder.map(nameOf);
+  $('overTitle').textContent = g.loser === 0 ? 'You lost! 😬' : 'You are safe! 🎉';
+  $('overText').textContent = (g.loser === 0
+    ? 'You were the last one holding cards.'
+    : `${nameOf(g.loser)} was the last one holding cards.`) + ` Order out of cards: ${safe.join(', ')}.`;
+  setTimeout(() => { if (game === g) $('over').hidden = false; }, 900);
+}
+
+$('newGame').onclick = newGame;
+$('again').onclick = newGame;
+$('gamble').onclick = () => humanMove('gamble');
+$('pickup').onclick = () => humanMove('pickup');
+$('rulesBtn').onclick = () => { $('rules').hidden = false; };
+$('closeRules').onclick = () => { $('rules').hidden = true; };
+$('rules').addEventListener('click', e => { if (e.target.id === 'rules') $('rules').hidden = true; });
+
+newGame();
+</script>
+</body>
+</html>
