@@ -152,6 +152,9 @@
     padding: 14px 30px; border-radius: 16px; background: linear-gradient(180deg, #ea580c, #9a3412); color: #fff7ed;
     font-family: var(--serif); font-size: 1.7rem; font-weight: 700; white-space: nowrap; text-align: center;
     box-shadow: 0 18px 50px rgba(0,0,0,.6), 0 0 0 2px rgba(255,237,213,.35); }
+  .banner.blue { background: linear-gradient(180deg, #2563eb, #1e3a8a); color: #eff6ff; box-shadow: 0 18px 50px rgba(0,0,0,.6), 0 0 0 2px rgba(191,219,254,.35); }
+  .banner small { white-space: normal; max-width: 440px; margin-left: auto; margin-right: auto; }
+  .tag.blue { background: #2563eb; color: #eff6ff; }
   .banner small { display: block; font-family: Inter, sans-serif; font-size: .85rem; font-weight: 500; opacity: .9; margin-top: 2px; }
   .banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   .trumptile { width: var(--mid-w); height: calc(var(--mid-w) * 1.45); border-radius: 8px; border: 2px solid var(--gold);
@@ -376,7 +379,8 @@
       <li>More than one pair (say two 6s and two 9s)? Only the highest pair battles.</li>
       <li>Don't want the stack? Lay low and let someone else take it.</li>
       <li>Whoever takes the stack starts the next round.</li>
-      <li>The last card in the deck is the hidden <b>trump</b>. Whoever would draw it gets it, revealed when the deck is gone.</li>
+      <li>The last card in the deck is the hidden <b>trump</b>. Whoever would draw it gets it, revealed after round 1.</li>
+      <li>When the deck is gone, keep laying without drawing (players with no cards sit out). When only one player has cards left, they take them, and round 1 is over.</li>
     </ul>
     <h3>Round 2: Get rid of your cards</h3>
     <ul>
@@ -386,6 +390,9 @@
       <li>Can't or won't beat it? Pick up the <b>first lay</b> on the stack: one card, or the whole run if the first lay was a run.</li>
       <li>When every player has laid a card, the stack goes out and whoever played last starts again.</li>
       <li>Run out of cards and you're safe. <b>The last player holding cards loses.</b></li>
+      <li><b>Blå:</b> a player who collected no cards in round 1. If only one player is blå, everyone gives up their 2, 3, 4 and 5: the blå player gets the trump 2–5 and the other 5s, and the other 2s, 3s and 4s leave the game.</li>
+      <li>If several players are blå, nobody gives up cards. Blå players start with nothing and must pick up on their turn. If there's nothing to pick up when their turn comes, they're out and safe.</li>
+      <li>If the trump holder collected nothing, they only hold the trump: they lay it to start round 2 and are out.</li>
     </ul>
     <p class="credit">Card artwork: <a href="https://github.com/htdebeer/SVG-cards" target="_blank" rel="noopener">SVG-cards</a> by David Bellot and Huub de Beer (LGPL-2.1). Avatars: <a href="https://www.dicebear.com" target="_blank" rel="noopener">DiceBear</a>.</p>
     <button class="btn gold" id="closeRules">Got it</button>
@@ -440,6 +447,7 @@ let hidden = new Set();  // card ids drawn invisible while a flying copy is on i
 let holdStack = null;    // a just-taken/cleared stack, kept on the table until it has flown away
 let handOrder = [];      // your round-1 hand order, so a drawn card slots into the gap it fills
 let stackOpen = false;   // fanned-out stack on touch screens
+let dealView = null;     // round-2 hands as dealt, shown during the blå hand-over animation
 let preselectedFor = null; // the 'lay it too' offer whose cards were pre-selected (only done once)
 
 const SUIT_FILE = { '♠': 'spade', '♥': 'heart', '♦': 'diamond', '♣': 'club' };
@@ -490,6 +498,7 @@ function newGame() {
   document.querySelectorAll('.flycard').forEach(el => el.remove()); // drop animations from the old game
   $('banner').classList.remove('show');
   hidden = new Set();
+  dealView = null;
   handOrder = game.players[0].hand.slice().sort((a, b) => a.rank - b.rank).map(c => c.id);
   $('over').hidden = true;
   render();
@@ -542,7 +551,7 @@ const handCard = id => document.querySelector(`#hand .card[data-id="${id}"]`);
 const stackCard = id => document.querySelector(`#stackpile .played[data-id="${id}"] .card`);
 
 // Fly a copy of a card from one rect to another. flip: 'up' (back→face), 'down' (face→back), 'back' (stay face-down).
-function fly({ card, from, to, flip = null, duration = 450, delay = 0, fade = false }) {
+function fly({ card, from, to, flip = null, duration = 450, delay = 0, fade = false, arc = 24 }) {
   if (reduceMotion || !from || !to) return Promise.resolve();
   const el = document.createElement('div');
   el.className = 'flycard';
@@ -555,7 +564,7 @@ function fly({ card, from, to, flip = null, duration = 450, delay = 0, fade = fa
   const timing = { duration, delay, easing: 'cubic-bezier(.25,.8,.25,1)', fill: 'both' };
   const a = el.animate([
     { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1 },
-    { transform: `translate(${dx * .5}px,${dy * .5 - 24}px) scale(${(1 + s) / 2 * 1.06}) rotate(-4deg)`, opacity: 1, offset: .5 },
+    { transform: `translate(${dx * .5}px,${dy * .5 - arc}px) scale(${(1 + s) / 2 * 1.06}) rotate(-4deg)`, opacity: 1, offset: .5 },
     { transform: `translate(${dx}px,${dy}px) scale(${s}) rotate(0deg)`, opacity: fade ? 0 : 1 },
   ], timing);
   const inner = el.firstChild, back = 'rotateY(180deg)', face = 'rotateY(0deg)';
@@ -602,6 +611,8 @@ async function performMove(move) {
     handOrder = handOrder.filter(Boolean);
   }
   holdStack = resolved ? resolved.entries : null;
+  const round2Starts = prevRound === 1 && g.round === 2;
+  if (round2Starts && g.blueMoves) dealView = g.r2Deal; // show hands as dealt until the 2-5s are handed over
 
   if (picked) {
     if (p === 0) picked.forEach(e => hidden.add(e.card.id));
@@ -641,20 +652,57 @@ async function performMove(move) {
       await collect(resolved);
       if (game !== g) return; // a new game was started meanwhile
     }
+    if (round2Starts) {
+      await startRound2Show(g);
+      if (game !== g) return;
+    }
   }
   holdStack = null;
   busy = false;
   render();
 }
 
-async function showBattle() {
-  const r1 = game.r1, b = $('banner');
-  const rank = M.rankName(game.stack.find(e => r1.tiedIds.includes(e.card.id)).card.rank);
-  b.innerHTML = `⚔ Battle! <small>${r1.order.map(nameOf).join(' vs ')} tied with ${rank}. Highest takes all.</small>`;
+async function showBanner(title, sub, cls, ms) {
+  const b = $('banner');
+  b.className = 'banner' + (cls ? ' ' + cls : '');
+  b.innerHTML = `${title}<small>${sub}</small>`;
+  void b.offsetWidth; // restart the pop-in transition
   b.classList.add('show');
-  await sleep(reduceMotion ? 900 : 1700);
+  await sleep(reduceMotion ? 900 : ms);
   b.classList.remove('show');
   await sleep(250);
+}
+
+async function showBattle() {
+  const r1 = game.r1;
+  const rank = M.rankName(game.stack.find(e => r1.tiedIds.includes(e.card.id)).card.rank);
+  await showBanner('⚔ Battle!', `${r1.order.map(nameOf).join(' vs ')} tied with ${rank}. Highest takes all.`, '', 1700);
+}
+
+// Round 2 is about to start: announce blå players and animate the 2-5 hand-over.
+async function startRound2Show(g) {
+  const names = ps => ps.map(nameOf).join(' and ');
+  if (g.blueMoves) {
+    const { to, moved, out } = g.blueMoves;
+    await showBanner(`🔵 ${to === 0 ? 'You are' : nameOf(to) + ' is'} blå!`,
+      `Everyone gives up their 2, 3, 4 and 5. ${to === 0 ? 'You get' : nameOf(to) + ' gets'} the trump 2–5 and the other 5s; the other 2s, 3s and 4s leave the game.`, 'blue', 2800);
+    if (game !== g) return;
+    const w = cssPx('--mid-w');
+    const felt = document.querySelector('.felt').getBoundingClientRect();
+    const offTable = { left: felt.right - w, top: felt.top + felt.height * .3, width: w * .8 };
+    const dest = to === 0 ? cardRectAt($('hand'), cssPx('--hand-w')) : seatRect(to);
+    const all = moved.map(m => ({ ...m, keep: true })).concat(out);
+    await Promise.all(all.map((m, i) => {
+      const mine = m.from === 0 && handCard(m.card.id);
+      const from = mine ? rectOf(mine) : cardRectAt(seatAnchor(m.from), w * .7);
+      if (mine) mine.classList.add('ghost');
+      // Cards rise up high, then go to the blå player (or fade away off the table).
+      return fly({ card: m.card, from, to: m.keep ? dest : offTable, duration: 1000, delay: i * 80, fade: !m.keep, arc: 160 });
+    }));
+    dealView = null;
+  } else if (g.blue.length > 1) {
+    await showBanner(`🔵 ${names(g.blue)} are blå!`, 'They start round 2 with no cards and must pick up what is laid. Nothing to pick up on their turn? Then they\'re out and safe.', 'blue', 3000);
+  }
 }
 
 // Taken stack flies to the winner; a cleared round-2 stack slides off the table.
@@ -681,6 +729,10 @@ function statusMessage() {
     const t = g.lastTrick;
     return t.cleared ? 'Everyone has laid a card, so the stack goes out.' : `${t.winner === 0 ? 'You take' : nameOf(t.winner) + ' takes'} the stack!`;
   }
+  const forced = M.forcedMove(g);
+  if (g.turn === 0 && forced) return forced === 'pickup'
+    ? "You have no cards, so you pick up the first lay."
+    : 'You only have one card, so you lay it.';
   if (g.turn !== 0) return g.round === 1 && g.r1.battle ? `Battle! ${nameOf(g.turn)} is laying…` : `${nameOf(g.turn)} is thinking…`;
   if (g.round === 1) {
     const r1 = g.r1;
@@ -718,7 +770,7 @@ function seatPositions(k) {
 }
 
 function render() {
-  const g = game, myTurn = !g.over && !busy && g.turn === 0;
+  const g = game, myTurn = !g.over && !busy && g.turn === 0 && !M.forcedMove(g);
 
   $('round').innerHTML = g.over ? 'Game over' : g.round === 1 ? 'Round 1 <span>· Collecting</span>' : 'Round 2 <span>· Shed your cards</span>';
   $('trump').innerHTML = g.trumpSuit
@@ -835,11 +887,13 @@ function seatEl(i) {
     else if (g.r1.leader === i) tags += '<span class="tag">Leads</span>';
   }
   if (g.round === 1 && g.trumpOwner === i) tags += '<span class="tag trump">Trump</span>';
+  if (g.round === 2 && pl.blue) tags += '<span class="tag blue">Blå</span>';
   if (pl.out) tags += '<span class="tag safe">Safe</span>';
   if (g.over && g.loser === i) tags += '<span class="tag lose">Loser</span>';
+  const hand = dealView ? dealView[i] : pl.hand;
   const meta = g.round === 1
-    ? `${pl.hand.length} cards · ${pl.pile.length} collected`
-    : pl.out ? 'Out of cards' : `${pl.hand.length} card${pl.hand.length === 1 ? '' : 's'} left`;
+    ? `${hand.length} cards · ${pl.pile.length} collected`
+    : pl.out ? 'Out of cards' : `${hand.length} card${hand.length === 1 ? '' : 's'} left`;
   const who = document.createElement('div');
   who.className = 'who';
   who.innerHTML = `<span class="name">${pl.name} ${tags}</span><span class="meta">${meta}</span>`;
@@ -848,14 +902,14 @@ function seatEl(i) {
 
   const fan = document.createElement('div');
   fan.className = 'fan';
-  const shown = Math.min(pl.hand.length, 5);
+  const shown = Math.min(hand.length, 5);
   for (let k = 0; k < shown; k++) {
     const img = new Image();
     img.src = 'cards/back.png'; img.alt = '';
     img.style.transform = `rotate(${(k - (shown - 1) / 2) * 9}deg)`;
     fan.appendChild(img);
   }
-  if (pl.hand.length > shown) fan.insertAdjacentHTML('beforeend', `<span class="more">+${pl.hand.length - shown}</span>`);
+  if (hand.length > shown) fan.insertAdjacentHTML('beforeend', `<span class="more">+${hand.length - shown}</span>`);
   el.appendChild(fan);
   return el;
 }
@@ -900,7 +954,7 @@ function renderHand(myTurn) {
     sorted = handOrder.map(id => me.hand.find(c => c.id === id));
   } else {
     const order = M.SUITS;
-    sorted = me.hand.slice().sort((a, b) => (a.suit === g.trumpSuit) - (b.suit === g.trumpSuit) || order.indexOf(a.suit) - order.indexOf(b.suit) || a.rank - b.rank);
+    sorted = (dealView ? dealView[0] : me.hand).slice().sort((a, b) => (a.suit === g.trumpSuit) - (b.suit === g.trumpSuit) || order.indexOf(a.suit) - order.indexOf(b.suit) || a.rank - b.rank);
   }
   const hand = $('hand');
   hand.innerHTML = '';
@@ -935,7 +989,8 @@ function renderHand(myTurn) {
     hand.appendChild(el);
   });
   $('handCount').textContent = me.out ? "You're out of cards. Safe!"
-    : `${me.hand.length} card${me.hand.length === 1 ? '' : 's'}` + (!myTurn ? ''
+    : g.round === 2 && me.blue && !me.hand.length ? '🔵 You are blå: you must pick up on your turn'
+    : `${(dealView ? dealView[0] : me.hand).length} card${me.hand.length === 1 ? '' : 's'}` + (!myTurn ? ''
       : g.round === 2 ? ' · tip: select same-suit cards in a row (5♥ 6♥ 7♥) to lay a run'
       : !extraRank && me.hand.some(c => me.hand.filter(d => d.rank === c.rank).length > 1) ? ' · tip: select cards of the same value to lay them together' : '');
 
@@ -965,7 +1020,7 @@ function renderPanels() {
 
   const scores = $('scores');
   scores.innerHTML = '';
-  const rows = g.players.map((pl, i) => ({ i, n: g.round === 1 ? pl.pile.length : pl.hand.length, out: pl.out }));
+  const rows = g.players.map((pl, i) => ({ i, n: g.round === 1 ? pl.pile.length : (dealView ? dealView[i] : pl.hand).length, out: pl.out }));
   if (g.round === 1) {
     $('scoresTitle').innerHTML = '🏆 Collected cards';
     rows.sort((a, b) => b.n - a.n);
@@ -984,7 +1039,13 @@ function renderPanels() {
 
 function schedule() {
   clearTimeout(timer);
-  if (busy || game.over || game.turn === 0 || !$('setup').hidden) return;
+  if (busy || game.over || !$('setup').hidden) return;
+  if (game.turn === 0) {
+    // No choice to make (pick up with no cards, or lay your only card): do it for you.
+    const forced = M.forcedMove(game);
+    if (forced) timer = setTimeout(() => performMove(forced), 1400);
+    return;
+  }
   // Computer players take a moment to "think".
   timer = setTimeout(() => performMove(M.aiMove(game)), 1100 + Math.random() * 700);
 }
@@ -1005,7 +1066,7 @@ function showGameOver() {
     row.className = 'result' + (loser ? ' loser' : '');
     row.appendChild(avatarEl(p));
     const body = document.createElement('div');
-    body.innerHTML = `<div class="head">${nameOf(p)} <span class="tag ${loser ? 'lose' : 'safe'}">${loser ? 'Loser' : ordinal(i + 1) + ' out'}</span></div>`;
+    body.innerHTML = `<div class="head">${nameOf(p)} <span class="tag ${loser ? 'lose' : 'safe'}">${loser ? 'Loser' : ordinal(i + 1) + ' out'}</span>${g.players[p].blue ? ' <span class="tag blue">Blå</span>' : ''}</div>`;
     if (loser && g.players[p].hand.length) {
       body.insertAdjacentHTML('beforeend', `<div class="lbl">Left holding ${g.players[p].hand.length} card${g.players[p].hand.length === 1 ? '' : 's'}</div>`);
       body.appendChild(miniCards(g.players[p].hand));

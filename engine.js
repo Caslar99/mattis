@@ -42,7 +42,9 @@
       difficulty: DIFFICULTIES.includes(difficulty) ? difficulty : 'normal',
       round: 1, turn: 0, r1: null,
       r2Start: null, // everyone's hand at the start of round 2, for the end-of-game summary
-      lastDraws: [], // cards drawn by the last round-1 action: { p, id } or { p, trump: true }
+      lastDraws: [],
+      lastOwnCards: null, // { p, cards } when the last player with cards took them at the end of round 1
+      blue: [], blueMoves: null, r2Deal: null, // cards drawn by the last round-1 action: { p, id } or { p, trump: true }
       stack: [], discard: [], lastTrick: null, lays: 0,
       finishOrder: [], over: false, loser: null, log: [],
     };
@@ -62,11 +64,23 @@
   const canGamble = g => g.round === 1 && g.deck.length >= 2;
   const canAct = (g, p) => g.players[p].hand.length > 0 || canGamble(g);
 
+  // Players with cards lay, clockwise from the leader. Once the deck is gone nobody draws, players
+  // without cards sit out, and when only one player still has cards they take them: round 1 is over.
   function startTrick(g, leader) {
     const order = [];
-    for (let i = 0; i < g.n; i++) order.push((leader + i) % g.n);
-    g.r1 = { leader, order, idx: 0, plays: [], battle: 0 };
-    g.turn = leader;
+    for (let i = 0; i < g.n; i++) if (canAct(g, (leader + i) % g.n)) order.push((leader + i) % g.n);
+    if (order.length <= 1) {
+      if (order.length === 1 && g.players[order[0]].hand.length) {
+        const pl = g.players[order[0]];
+        g.lastOwnCards = { p: order[0], cards: pl.hand.slice() };
+        log(g, say(g, order[0], 'are the only one with cards left and take', 'is the only one with cards left and takes') + ' ' + pl.hand.map(label).join(' ') + '.', order[0]);
+        pl.pile.push(...pl.hand);
+        pl.hand = [];
+      }
+      return endRound1(g);
+    }
+    g.r1 = { leader: order[0], order, idx: 0, plays: [], battle: 0 };
+    g.turn = order[0];
   }
 
   function drawCard(g, p) {
@@ -183,7 +197,6 @@
     g.lastTrick = { entries: g.stack, winner: w };
     log(g, say(g, w, 'take', 'takes') + ' the stack (' + g.stack.length + ' cards).', w);
     g.stack = [];
-    if (g.deck.length === 0) return endRound1(g);
     startTrick(g, w); // the winner starts the next round of cards
   }
 
@@ -195,16 +208,65 @@
       pl.hand = pl.pile.concat(pl.hand);
       pl.pile = [];
     }
+    // Blå: collected nothing in round 1 (the trump holder has the trump, so is never blå).
+    g.blue = [];
+    g.players.forEach((pl, i) => { pl.blue = !pl.hand.length && i !== g.trumpOwner; if (pl.blue) g.blue.push(i); });
     g.players[g.trumpOwner].hand.push(g.trumpCard);
-    g.r2Start = g.players.map(pl => pl.hand.slice());
+    g.r2Deal = g.players.map(pl => pl.hand.slice()); // hands as dealt, before any blå hand-over
     g.stack = [];
     log(g, 'Round 1 over! The trump is ' + label(g.trumpCard) + '. ' + say(g, g.trumpOwner, 'have it and start round 2.', 'has it and starts round 2.'), g.trumpOwner);
+    g.blueMoves = null;
+    if (g.blue.length === 1) {
+      // One blå player: everyone gives up their 2-5s. The blå player gets the trump 2-5 and the
+      // other 5s; the non-trump 2-4s leave the game.
+      const b = g.blue[0], moved = [], out = [];
+      g.players.forEach((pl, i) => {
+        for (const c of pl.hand.filter(c => c.rank <= 5)) {
+          pl.hand.splice(pl.hand.indexOf(c), 1);
+          if (c.suit === g.trumpSuit || c.rank === 5) moved.push({ card: c, from: i });
+          else { out.push({ card: c, from: i }); g.discard.push(c); }
+        }
+      });
+      g.players[b].hand.push(...moved.map(m => m.card));
+      g.blueMoves = { to: b, moved, out };
+      log(g, say(g, b, 'are', 'is') + ' blå! Everyone gives up their 2, 3, 4 and 5. ' + say(g, b, 'get', 'gets') +
+        ' the trump 2-5 and the other 5s; the other 2s, 3s and 4s leave the game.', b);
+    } else if (g.blue.length > 1) {
+      log(g, listNames(g, g.blue) + ' are blå: they start with no cards and must pick up what is laid.');
+    }
+    g.r2Start = g.players.map(pl => pl.hand.slice());
+    // Out before round 2 starts: anyone left with no cards who isn't waiting as blå.
     g.players.forEach((pl, i) => {
-      if (!pl.hand.length) { pl.out = true; g.finishOrder.push(i); }
+      if (!pl.hand.length && !(pl.blue && g.blue.length > 1)) { pl.out = true; g.finishOrder.push(i); }
     });
+    if (checkOver(g)) return;
     g.turn = g.players[g.trumpOwner].out ? nextActive(g, g.trumpOwner) : g.trumpOwner;
-    checkOver(g);
+    settleTurn(g);
   }
+
+  // A blå player still waiting for cards: on their turn they must pick up, or, with nothing on the
+  // stack to pick up, they're out and safe.
+  function settleTurn(g) {
+    while (!g.over) {
+      const pl = g.players[g.turn];
+      if (pl.out || pl.hand.length || g.stack.length) return;
+      pl.out = true;
+      g.finishOrder.push(g.turn);
+      log(g, say(g, g.turn, 'have', 'has') + ' no cards and nothing to pick up: out and safe!', g.turn);
+      if (checkOver(g)) return;
+      g.turn = nextActive(g, g.turn);
+    }
+  }
+
+  // The move a player has no choice about, if any: picking up with no cards, or leading their only card.
+  function forcedMove(g) {
+    if (g.over || g.round !== 2) return null;
+    const hand = g.players[g.turn].hand;
+    if (!hand.length && g.stack.length) return 'pickup';
+    if (hand.length === 1 && !g.stack.length) return hand[0].id;
+    return null;
+  }
+
 
   // ---------- Round 2: get rid of your cards ----------
 
@@ -280,6 +342,7 @@
     } else {
       g.turn = nextActive(g, p);
     }
+    settleTurn(g);
   }
 
   // The cards of the first lay still on the stack (a run's cards share one lay id).
@@ -295,6 +358,7 @@
     g.lastTrick = null;
     log(g, say(g, p, 'pick up', 'picks up') + ' ' + taken.map(e => label(e.card)).join(' ') + '.', p);
     g.turn = nextActive(g, p);
+    settleTurn(g);
   }
 
   function checkOver(g) {
@@ -312,6 +376,8 @@
   const worth = c => (c.rank >= 11 ? c.rank - 9 : c.rank >= 9 ? 1 : 0); // J=2, Q=3, K=4, A=5
 
   function aiMove(g) {
+    const forced = forcedMove(g);
+    if (forced) return forced;
     if (g.difficulty === 'easy') return aiEasy(g);
     if (g.difficulty === 'hard') return g.round === 1 ? aiHardR1(g) : aiHardR2(g);
     return aiNormal(g);
@@ -490,7 +556,7 @@
     return r2Play(g, g.turn, move);
   }
 
-  const api = { createGame, DIFFICULTIES, firstLay, r1Play, r1Extra, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
+  const api = { createGame, DIFFICULTIES, firstLay, forcedMove, r1Play, r1Extra, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Mattis = api;
 })(typeof window !== 'undefined' ? window : globalThis);
