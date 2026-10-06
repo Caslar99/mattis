@@ -321,6 +321,7 @@
       <div class="row">
         <button class="btn gold play-btn" id="playBtn"></button>
         <button class="btn" id="pickup">Pick up first card</button>
+        <button class="btn" id="keepBtn">Keep it</button>
       </div>
     </div>
   </div>
@@ -338,6 +339,8 @@
     <h3>Round 1: Collecting</h3>
     <ul>
       <li>Everyone always holds 3 cards. When you lay one, you draw a new one.</li>
+      <li>Got two or three cards of the same value? You may lay them together (you draw back up to 3).</li>
+      <li>Drew another card of the value you just laid? You may lay that one too, or keep it.</li>
       <li>Instead of laying from your hand, you can press <b>Chance card</b> on the deck: the top card of the deck is laid instead, and your hand stays the same.</li>
       <li>Everyone lays one card. When all have laid, the <b>highest card takes the whole stack</b>.</li>
       <li>But if two or more cards have the <b>same value</b> (two 3s, two kings…), those players <b>battle</b>: each lays another card, and the highest takes it all, including any higher card on the table. Tie again? Battle again.</li>
@@ -485,6 +488,7 @@ function reveal(id) {
 // Every move (yours or a computer's) goes through here so it can be animated.
 async function performMove(move) {
   if (busy || game.over) return;
+  if (move === 'keep') { sel = []; M.act(game, move); render(); return; } // declined to lay a matching card
   busy = true;
   clearTimeout(timer);
   const g = game, p = g.turn, prevRound = g.round, prevLast = g.lastTrick;
@@ -498,17 +502,19 @@ async function performMove(move) {
   if (move === 'gamble') from = deckRect();
   else if (pickedEntry) from = rectOf(stackCard(pickedEntry.card.id));
   else for (const id of ids) froms[id] = p === 0 ? rectOf(handCard(id)) : seatRect(p);
-  const slot = p === 0 && g.round === 1 && typeof move === 'string' && move !== 'gamble' ? handOrder.indexOf(move) : -1;
+  // Round 1: the hand spots your cards leave empty, so drawn cards can slot into them.
+  const slots = p === 0 && g.round === 1 ? ids.map(id => handOrder.indexOf(id)).filter(i => i >= 0).sort((a, b) => a - b) : [];
 
   sel = [];
   stackOpen = false; // close a fanned-out stack so the new card is seen landing on top
   M.act(g, move);
 
   const resolved = g.lastTrick && g.lastTrick !== prevLast ? g.lastTrick : null;
-  const draw = prevRound === 1 && g.lastDraw && g.lastDraw.p === p ? g.lastDraw : null;
-  if (slot >= 0) {
-    if (draw && draw.id) handOrder[slot] = draw.id; // the new card takes the played card's spot
-    else handOrder.splice(slot, 1);
+  const draws = prevRound === 1 ? g.lastDraws.filter(d => d.p === p) : [];
+  const drawnIds = draws.filter(d => d.id).map(d => d.id);
+  if (slots.length) {
+    slots.forEach((slot, k) => { handOrder[slot] = drawnIds[k] || null; }); // new cards take the empty spots
+    handOrder = handOrder.filter(Boolean);
   }
   holdStack = resolved ? resolved.entries : null;
 
@@ -523,7 +529,7 @@ async function performMove(move) {
     const pool = g.stack.length ? g.stack : resolved.entries;
     const laid = move === 'gamble' ? [pool[pool.length - 1]] : pool.filter(e => ids.includes(e.card.id));
     laid.forEach(e => hidden.add(e.card.id));
-    if (draw && draw.id && p === 0) hidden.add(draw.id);
+    if (p === 0) drawnIds.forEach(id => hidden.add(id));
     render();
     await Promise.all(laid.map((e, i) => {
       const target = stackCard(e.card.id);
@@ -533,16 +539,14 @@ async function performMove(move) {
     if (game !== g) return; // a new game was started meanwhile
     if (g.round === 1 && g.r1 && g.r1.battle > prevBattle) await showBattle();
     if (game !== g) return;
-    if (draw) {
-      const mine = p === 0 && draw.id && handCard(draw.id);
-      if (mine) {
-        await fly({ card: game.players[0].hand.find(c => c.id === draw.id), from: deckRect(), to: rectOf(mine), flip: 'up', duration: 420 });
-        if (game !== g) return; // a new game was started meanwhile
-        reveal(draw.id);
-      } else {
-        await fly({ card: null, from: deckRect(), to: seatRect(p), flip: 'back', duration: 420 });
-        if (game !== g) return; // a new game was started meanwhile
-      }
+    if (draws.length) {
+      await Promise.all(draws.map((d, k) => {
+        const mine = p === 0 && d.id && handCard(d.id);
+        return mine
+          ? fly({ card: game.players[0].hand.find(c => c.id === d.id), from: deckRect(), to: rectOf(mine), flip: 'up', duration: 420, delay: k * 130 }).then(() => reveal(d.id))
+          : fly({ card: null, from: deckRect(), to: seatRect(p), flip: 'back', duration: 420, delay: k * 130 });
+      }));
+      if (game !== g) return; // a new game was started meanwhile
     }
     if (resolved) {
       await sleep(reduceMotion ? 600 : 1000); // let everyone see the result
@@ -593,6 +597,7 @@ function statusMessage() {
   if (g.turn !== 0) return g.round === 1 && g.r1.battle ? `Battle! ${nameOf(g.turn)} is laying…` : `${nameOf(g.turn)} is thinking…`;
   if (g.round === 1) {
     const r1 = g.r1;
+    if (r1.extra) return `You have another ${M.rankName(r1.extra.rank)}! Lay it too, or keep it.`;
     const best = bestPlay();
     if (r1.battle) {
       const others = r1.order.filter(p => p !== 0).map(nameOf).join(', ');
@@ -677,7 +682,7 @@ function renderDeck(myTurn) {
   }
   const chance = $('chance');
   chance.hidden = g.round !== 1 || g.deck.length < 2;
-  chance.disabled = !(myTurn && M.canGamble(g));
+  chance.disabled = !(myTurn && M.canGamble(g) && !g.r1.extra);
 }
 
 function renderStack() {
@@ -773,12 +778,22 @@ function renderHand(myTurn) {
   $('me').className = 'me' + (myTurn ? ' turn' : '');
   if (!$('myAvatar').childElementCount) $('myAvatar').replaceWith(Object.assign(avatarEl(0), { id: 'myAvatar' }));
 
-  const legal = new Set(myTurn ? M.legalCards(g, 0).map(c => c.id) : []);
+  // Deciding whether to lay another card of the value just laid: only those cards can be played.
+  const extraRank = g.round === 1 && g.r1 && g.r1.extra ? g.r1.extra.rank : null;
+  const legal = new Set(myTurn ? M.legalCards(g, 0).filter(c => extraRank === null || c.rank === extraRank).map(c => c.id) : []);
   sel = myTurn ? sel.filter(id => me.hand.some(c => c.id === id)) : [];
-  if (sel.length && !(g.round === 2 ? M.checkPlay(g, 0, sel) : sel.length === 1 && legal.has(sel[0]))) sel = [];
-  const selCards = sel.map(id => me.hand.find(c => c.id === id)).sort((a, b) => a.rank - b.rank);
+  let selCards = sel.map(id => me.hand.find(c => c.id === id)).sort((a, b) => a.rank - b.rank);
+  const selOk = g.round === 2 ? M.checkPlay(g, 0, sel) : selCards.every(c => legal.has(c.id) && c.rank === selCards[0].rank);
+  if (sel.length && !selOk) { sel = []; selCards = []; }
+  if (extraRank && myTurn && !sel.length) { // pre-select the matching card(s): one click to lay them
+    sel = [...legal];
+    selCards = sel.map(id => me.hand.find(c => c.id === id));
+  }
   // Round 2: cards that would extend the selected run up or down.
   const extend = new Set();
+  if (g.round === 1 && selCards.length) {
+    for (const c of me.hand) if (c.rank === selCards[0].rank && !sel.includes(c.id)) extend.add(c.id); // same value
+  }
   if (g.round === 2 && selCards.length) {
     const lo = selCards[0], hi = selCards[selCards.length - 1];
     for (const c of me.hand) {
@@ -811,7 +826,8 @@ function renderHand(myTurn) {
       el.classList.add('playable');
       el.addEventListener('click', e => {
         if (g.round === 1) {
-          if (sel[0] === c.id) performMove(c.id); // click a selected card again to play it
+          if (sel.includes(c.id)) performMove(sel.length > 1 ? sel.slice() : c.id); // click a selected card again to play
+          else if (extend.has(c.id)) { sel.push(c.id); renderHand(true); } // same value: lay them together
           else { sel = [c.id]; renderHand(true); }
           return;
         }
@@ -827,18 +843,23 @@ function renderHand(myTurn) {
     hand.appendChild(el);
   });
   $('handCount').textContent = me.out ? "You're out of cards. Safe!"
-    : `${me.hand.length} card${me.hand.length === 1 ? '' : 's'}` + (g.round === 2 && myTurn ? ' · tip: select same-suit cards in a row (5♥ 6♥ 7♥) to lay a run' : '');
+    : `${me.hand.length} card${me.hand.length === 1 ? '' : 's'}` + (!myTurn ? ''
+      : g.round === 2 ? ' · tip: select same-suit cards in a row (5♥ 6♥ 7♥) to lay a run'
+      : !extraRank && me.hand.some(c => me.hand.filter(d => d.rank === c.rank).length > 1) ? ' · tip: select cards of the same value to lay them together' : '');
 
   const btn = $('playBtn');
   if (g.over) { btn.textContent = 'Game over'; btn.disabled = true; }
   else if (busy) { btn.textContent = '…'; btn.disabled = true; }
   else if (!myTurn) { btn.textContent = `Waiting for ${nameOf(g.turn)}…`; btn.disabled = true; }
-  else if (selCards.length > 1) { btn.textContent = `♠ Play run ${selCards.map(M.label).join(' ')}`; btn.disabled = false; }
+  else if (selCards.length && extraRank) { btn.textContent = `♠ Lay ${selCards.map(M.label).join(' ')} too`; btn.disabled = false; }
+  else if (selCards.length > 1) { btn.textContent = `♠ Play ${g.round === 2 ? 'run ' : ''}${selCards.map(M.label).join(' ')}`; btn.disabled = false; }
   else if (selCards.length) { btn.textContent = `♠ Play ${M.label(selCards[0])}`; btn.disabled = false; }
+  else if (extraRank) { btn.textContent = `Select your ${M.rankName(extraRank)} to lay it`; btn.disabled = true; }
   else { btn.textContent = legal.size ? 'Select a card' : 'No card can beat it'; btn.disabled = true; }
 
   $('pickup').hidden = g.round !== 2 || me.out;
   $('pickup').disabled = !(myTurn && g.stack.length);
+  $('keepBtn').hidden = !(myTurn && extraRank);
 }
 
 function renderPanels() {
@@ -886,7 +907,8 @@ function showGameOver() {
 
 $('newGame').onclick = newGame;
 $('again').onclick = newGame;
-$('playBtn').onclick = () => { if (sel.length) performMove(game.round === 2 ? sel.slice() : sel[0]); };
+$('playBtn').onclick = () => { if (sel.length) performMove(game.round === 2 || sel.length > 1 ? sel.slice() : sel[0]); };
+$('keepBtn').onclick = () => performMove('keep');
 $('chance').onclick = () => performMove('gamble');
 $('pickup').onclick = () => performMove('pickup');
 $('rulesBtn').onclick = () => { $('rules').hidden = false; };

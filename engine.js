@@ -38,7 +38,7 @@
       trumpCard: deck[0], // bottom card of the deck, hidden until round 1 ends
       trumpOwner: null, trumpSuit: null,
       round: 1, turn: 0, r1: null,
-      lastDraw: null, // { p, id } of the card just drawn in round 1, or { p, trump: true }
+      lastDraws: [], // cards drawn by the last round-1 action: { p, id } or { p, trump: true }
       stack: [], discard: [], lastTrick: null, lays: 0,
       finishOrder: [], over: false, loser: null, log: [],
     };
@@ -69,37 +69,82 @@
     if (g.deck.length >= 2) {
       const c = g.deck.pop();
       g.players[p].hand.push(c);
-      g.lastDraw = { p, id: c.id };
+      g.lastDraws.push({ p, id: c.id });
     }
     else if (g.deck.length === 1) {
       g.deck.pop();
       g.trumpOwner = p;
-      g.lastDraw = { p, trump: true };
+      g.lastDraws.push({ p, trump: true });
       log(g, say(g, p, 'get', 'gets') + ' the last card: the hidden trump. It is revealed after round 1.', p);
     }
   }
 
-  function r1Play(g, p, cardId) {
+  // Lay one card, several cards of the same value, or 'gamble' (the top card of the deck).
+  function r1Play(g, p, move) {
     if (g.over || g.round !== 1 || g.turn !== p) throw new Error('Not your turn');
-    const pl = g.players[p];
-    let card, gambled = false;
-    g.lastDraw = null;
-    if (cardId === 'gamble') {
+    if (g.r1.extra) throw new Error('First lay the matching card or keep it');
+    g.lastDraws = [];
+    if (move === 'gamble') {
       if (!canGamble(g)) throw new Error('Cannot gamble now');
-      card = g.deck.pop();
-      gambled = true;
-    } else {
-      const i = pl.hand.findIndex(c => c.id === cardId);
-      if (i < 0) throw new Error('Card not in hand');
-      card = pl.hand.splice(i, 1)[0];
-      drawCard(g, p);
+      layCards(g, p, [g.deck.pop()], 'gamble');
+      return nextLayer(g);
     }
+    const cards = takeSameValue(g, p, Array.isArray(move) ? move : [move]);
+    layCards(g, p, cards, 'hand');
+    offerExtra(g, p, cards[0].rank);
+  }
+
+  // After laying and drawing, a player holding another card of the value they just laid may lay
+  // it too ('keep' declines). This repeats if the new draw matches again.
+  function r1Extra(g, p, move) {
     const r1 = g.r1;
-    const entry = { card, by: p, gambled, battle: r1.battle }; // battle: 0 = normal lay, 1+ = battle round
-    g.stack.push(entry);
-    r1.plays.push(entry);
+    if (g.over || g.round !== 1 || g.turn !== p || !r1.extra) throw new Error('Nothing to add');
+    g.lastDraws = [];
+    const rank = r1.extra.rank;
+    r1.extra = null;
+    if (move === 'keep') return nextLayer(g);
+    const cards = takeSameValue(g, p, Array.isArray(move) ? move : [move]);
+    if (cards[0].rank !== rank) {
+      g.players[p].hand.push(...cards);
+      r1.extra = { p, rank };
+      throw new Error('Only a card of the same value can be added');
+    }
+    layCards(g, p, cards, 'extra');
+    offerExtra(g, p, rank);
+  }
+
+  function takeSameValue(g, p, ids) {
+    const hand = g.players[p].hand;
+    const cards = [...new Set(ids)].map(id => hand.find(c => c.id === id));
+    if (!cards.length || cards.some(c => !c)) throw new Error('Card not in hand');
+    if (cards.some(c => c.rank !== cards[0].rank)) throw new Error('Several cards must have the same value');
+    for (const c of cards) hand.splice(hand.indexOf(c), 1);
+    return cards;
+  }
+
+  function layCards(g, p, cards, how) {
+    const r1 = g.r1;
+    for (const card of cards) {
+      // battle: 0 = normal lay, 1+ = battle round
+      const entry = { card, by: p, gambled: how === 'gamble', extra: how === 'extra', battle: r1.battle };
+      g.stack.push(entry);
+      r1.plays.push(entry);
+    }
     g.lastTrick = null;
-    log(g, say(g, p, gambled ? 'gamble and flip' : 'play', gambled ? 'gambles and flips' : 'plays') + ' ' + label(card) + '.', p);
+    const names = cards.map(label).join(' ');
+    if (how === 'gamble') log(g, say(g, p, 'gamble and flip', 'gambles and flips') + ' ' + names + '.', p);
+    else if (how === 'extra') log(g, say(g, p, 'also lay', 'also lays') + ' ' + names + '.', p);
+    else log(g, say(g, p, 'play', 'plays') + ' ' + names + (cards.length > 1 ? ' (same value!)' : '.'), p);
+    if (how !== 'gamble') for (let i = 0; i < cards.length; i++) drawCard(g, p);
+  }
+
+  function offerExtra(g, p, rank) {
+    if (g.players[p].hand.some(c => c.rank === rank)) g.r1.extra = { p, rank };
+    else nextLayer(g);
+  }
+
+  function nextLayer(g) {
+    const r1 = g.r1;
     r1.idx++;
     if (r1.idx < r1.order.length) g.turn = r1.order[r1.idx];
     else resolveTrick(g);
@@ -107,15 +152,16 @@
 
   function resolveTrick(g) {
     const r1 = g.r1;
-    const count = {};
-    for (const e of r1.plays) count[e.card.rank] = (count[e.card.rank] || 0) + 1;
-    const pairRanks = Object.keys(count).filter(r => count[r] > 1).map(Number);
+    // Battles are between different players: several cards of one value from the same player don't count.
+    const players = {};
+    for (const e of r1.plays) (players[e.card.rank] = players[e.card.rank] || new Set()).add(e.by);
+    const pairRanks = Object.keys(players).filter(r => players[r].size > 1).map(Number);
     if (!pairRanks.length) {
       const best = r1.plays.reduce((b, e) => (e.card.rank > b.card.rank ? e : b));
       return awardR1(g, best.by);
     }
     const top = Math.max(...pairRanks);
-    const tied = r1.plays.filter(e => e.card.rank === top).map(e => e.by);
+    const tied = [...new Set(r1.plays.filter(e => e.card.rank === top).map(e => e.by))];
     // After the deck is gone a tied player may have nothing left to battle with.
     const fighters = tied.filter(p => canAct(g, p));
     if (fighters.length <= 1) return awardR1(g, fighters.length ? fighters[0] : tied[0]);
@@ -258,33 +304,52 @@
   function aiMove(g) {
     const p = g.turn, pl = g.players[p], rng = g.rng;
     if (g.round === 1) {
-      const hand = pl.hand.slice().sort((a, b) => a.rank - b.rank);
-      const gamble = canGamble(g);
-      if (!hand.length) return 'gamble';
-      const r1 = g.r1, plays = r1.plays;
-      const lowest = hand[0], highest = hand[hand.length - 1];
-      if (!plays.length) {
-        if (r1.battle) return highest.id; // battles are over good stacks: go for it
-        // Hand full of good cards? Risk the deck instead of giving one away.
-        if (gamble && lowest.rank >= 12 && rng() < 0.6) return 'gamble';
-        return lowest.id;
-      }
-      const best = Math.max(...plays.map(e => e.card.rank));
-      const last = r1.idx === r1.order.length - 1;
-      const value = g.stack.reduce((s, e) => s + worth(e.card), 0);
-      if (r1.battle || value >= 3 || g.stack.length >= 4) {
-        if (last) {
-          const cheapest = hand.find(c => c.rank > best);
-          if (cheapest) return cheapest.id;
-        } else if (highest.rank > best) return highest.id;
-        if (gamble && rng() < 0.4) return 'gamble';
-        return lowest.id;
-      }
-      // Stack isn't worth it: lose on purpose with a low card.
-      if (lowest.rank < best) return lowest.id;
-      if (gamble && rng() < 0.5) return 'gamble';
+      const move = aiR1(g, p);
+      if (g.r1.extra) return move;
+      // Got more of a low value? Dump them together.
+      const card = move !== 'gamble' && pl.hand.find(c => c.id === move);
+      const same = card ? pl.hand.filter(c => c.rank === card.rank) : [];
+      return same.length > 1 && card.rank <= 8 ? same.map(c => c.id) : move;
+    }
+    return aiR2(g, p);
+  }
+
+  function aiR1(g, p) {
+    const pl = g.players[p], rng = g.rng;
+    if (g.r1.extra) {
+      const same = pl.hand.filter(c => c.rank === g.r1.extra.rank);
+      return g.r1.extra.rank <= 8 || rng() < 0.3 ? same.map(c => c.id) : 'keep';
+    }
+    const hand = pl.hand.slice().sort((a, b) => a.rank - b.rank);
+    const gamble = canGamble(g);
+    if (!hand.length) return 'gamble';
+    const r1 = g.r1, plays = r1.plays;
+    const lowest = hand[0], highest = hand[hand.length - 1];
+    if (!plays.length) {
+      if (r1.battle) return highest.id; // battles are over good stacks: go for it
+      // Hand full of good cards? Risk the deck instead of giving one away.
+      if (gamble && lowest.rank >= 12 && rng() < 0.6) return 'gamble';
       return lowest.id;
     }
+    const best = Math.max(...plays.map(e => e.card.rank));
+    const last = r1.idx === r1.order.length - 1;
+    const value = g.stack.reduce((s, e) => s + worth(e.card), 0);
+    if (r1.battle || value >= 3 || g.stack.length >= 4) {
+      if (last) {
+        const cheapest = hand.find(c => c.rank > best);
+        if (cheapest) return cheapest.id;
+      } else if (highest.rank > best) return highest.id;
+      if (gamble && rng() < 0.4) return 'gamble';
+      return lowest.id;
+    }
+    // Stack isn't worth it: lose on purpose with a low card.
+    if (lowest.rank < best) return lowest.id;
+    if (gamble && rng() < 0.5) return 'gamble';
+    return lowest.id;
+  }
+
+  function aiR2(g, p) {
+    const pl = g.players[p], rng = g.rng;
     const isTrump = c => c.suit === g.trumpSuit;
     const legal = legalCards(g, p).sort((a, b) => isTrump(a) - isTrump(b) || a.rank - b.rank);
     if (!legal.length) return 'pickup';
@@ -305,12 +370,12 @@
   }
 
   function act(g, move) {
-    if (g.round === 1) return r1Play(g, g.turn, move);
+    if (g.round === 1) return g.r1.extra ? r1Extra(g, g.turn, move) : r1Play(g, g.turn, move);
     if (move === 'pickup') return r2PickUp(g, g.turn);
     return r2Play(g, g.turn, move);
   }
 
-  const api = { createGame, r1Play, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
+  const api = { createGame, r1Play, r1Extra, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Mattis = api;
 })(typeof window !== 'undefined' ? window : globalThis);
