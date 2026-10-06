@@ -340,6 +340,7 @@
     <ul>
       <li>Everyone always holds 3 cards. When you lay one, you draw a new one.</li>
       <li>Got two or three cards of the same value? You may lay them together (you draw back up to 3).</li>
+      <li>Click a card to select it, click it again to deselect it, and press <b>Play</b> (or double-click a card) to lay your selection.</li>
       <li>Drew another card of the value you just laid? You may lay that one too, or keep it.</li>
       <li>Instead of laying from your hand, you can press <b>Chance card</b> on the deck: the top card of the deck is laid instead, and your hand stays the same.</li>
       <li>Everyone lays one card. When all have laid, the <b>highest card takes the whole stack</b>.</li>
@@ -384,6 +385,7 @@ let hidden = new Set();  // card ids drawn invisible while a flying copy is on i
 let holdStack = null;    // a just-taken/cleared stack, kept on the table until it has flown away
 let handOrder = [];      // your round-1 hand order, so a drawn card slots into the gap it fills
 let stackOpen = false;   // fanned-out stack on touch screens
+let preselectedFor = null; // the 'lay it too' offer whose cards were pre-selected (only done once)
 
 const SUIT_FILE = { '♠': 'spade', '♥': 'heart', '♦': 'diamond', '♣': 'club' };
 const RANK_FILE = { 11: 'jack', 12: 'queen', 13: 'king', 14: '1' };
@@ -785,7 +787,8 @@ function renderHand(myTurn) {
   let selCards = sel.map(id => me.hand.find(c => c.id === id)).sort((a, b) => a.rank - b.rank);
   const selOk = g.round === 2 ? M.checkPlay(g, 0, sel) : selCards.every(c => legal.has(c.id) && c.rank === selCards[0].rank);
   if (sel.length && !selOk) { sel = []; selCards = []; }
-  if (extraRank && myTurn && !sel.length) { // pre-select the matching card(s): one click to lay them
+  if (extraRank && myTurn && !sel.length && preselectedFor !== g.r1.extra) { // pre-select once: one click to lay
+    preselectedFor = g.r1.extra;
     sel = [...legal];
     selCards = sel.map(id => me.hand.find(c => c.id === id));
   }
@@ -825,19 +828,23 @@ function renderHand(myTurn) {
     if (legal.has(c.id) || extend.has(c.id) || sel.includes(c.id)) {
       el.classList.add('playable');
       el.addEventListener('click', e => {
+        if (e.detail > 1) return; // second click of a double-click: handled below
         if (g.round === 1) {
-          if (sel.includes(c.id)) performMove(sel.length > 1 ? sel.slice() : c.id); // click a selected card again to play
-          else if (extend.has(c.id)) { sel.push(c.id); renderHand(true); } // same value: lay them together
-          else { sel = [c.id]; renderHand(true); }
+          if (sel.includes(c.id)) sel = sel.filter(id => id !== c.id); // click a selected card again to deselect it
+          else if (extend.has(c.id)) sel.push(c.id); // same value: lay them together
+          else sel = [c.id];
+          renderHand(true);
           return;
         }
-        if (e.detail > 1) return; // second click of a double-click: handled below
         if (sel.includes(c.id)) sel = selCards.filter(x => x.rank < c.rank).map(x => x.id); // drop it (and anything above)
         else if (extend.has(c.id)) sel.push(c.id);
         else sel = [c.id];
         renderHand(true);
       });
-      if (g.round === 2) el.addEventListener('dblclick', () => { if (sel.includes(c.id)) performMove(sel.slice()); });
+      // Double-click: shortcut to play the selection (the first click selected the card).
+      el.addEventListener('dblclick', () => {
+        if (sel.includes(c.id)) performMove(g.round === 2 || sel.length > 1 ? sel.slice() : c.id);
+      });
     } else if (myTurn) el.classList.add('dim');
     if (sel.includes(c.id)) el.classList.add('selected');
     hand.appendChild(el);
