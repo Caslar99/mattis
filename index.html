@@ -355,7 +355,7 @@
       <li>Your collected cards (plus any left in your hand) become your hand. The trump holder starts.</li>
       <li>Beat the top card with a higher card of the same suit, or with a trump. Over a trump you need a higher trump.</li>
       <li>Got cards of the same suit in a row, like 5♥ 6♥ 7♥ 8♥? Lay them all at once as a <b>run</b>. The lowest card must beat the top card, and the run counts as one lay.</li>
-      <li>Can't or won't beat it? Pick up the <b>first</b> card laid on the stack.</li>
+      <li>Can't or won't beat it? Pick up the <b>first lay</b> on the stack: one card, or the whole run if the first lay was a run.</li>
       <li>When every player has laid a card, the stack goes out and whoever played last starts again.</li>
       <li>Run out of cards and you're safe. <b>The last player holding cards loses.</b></li>
     </ul>
@@ -500,10 +500,10 @@ async function performMove(move) {
   // Where do the cards come from? (Measured before the move changes the DOM.)
   let from;
   const froms = {};
-  const pickedEntry = move === 'pickup' ? g.stack[0] : null;
+  const picked = move === 'pickup' ? M.firstLay(g) : null; // one card, or a whole run
+  const pickFroms = picked ? picked.map(e => rectOf(stackCard(e.card.id))) : null;
   if (move === 'gamble') from = deckRect();
-  else if (pickedEntry) from = rectOf(stackCard(pickedEntry.card.id));
-  else for (const id of ids) froms[id] = p === 0 ? rectOf(handCard(id)) : seatRect(p);
+  else if (!picked) for (const id of ids) froms[id] = p === 0 ? rectOf(handCard(id)) : seatRect(p);
   // Round 1: the hand spots your cards leave empty, so drawn cards can slot into them.
   const slots = p === 0 && g.round === 1 ? ids.map(id => handOrder.indexOf(id)).filter(i => i >= 0).sort((a, b) => a - b) : [];
 
@@ -520,13 +520,15 @@ async function performMove(move) {
   }
   holdStack = resolved ? resolved.entries : null;
 
-  if (pickedEntry) {
-    if (p === 0) hidden.add(pickedEntry.card.id);
+  if (picked) {
+    if (p === 0) picked.forEach(e => hidden.add(e.card.id));
     render();
-    const to = p === 0 ? rectOf(handCard(pickedEntry.card.id)) : seatRect(p);
-    await fly({ card: pickedEntry.card, from, to, flip: p === 0 ? null : 'down', duration: 480 });
+    await Promise.all(picked.map((e, i) => {
+      const to = p === 0 ? rectOf(handCard(e.card.id)) : seatRect(p);
+      return fly({ card: e.card, from: pickFroms[i], to, flip: p === 0 ? null : 'down', duration: 480, delay: i * 90 })
+        .then(() => reveal(e.card.id));
+    }));
     if (game !== g) return; // a new game was started meanwhile
-    reveal(pickedEntry.card.id);
   } else {
     const pool = g.stack.length ? g.stack : resolved.entries;
     const laid = move === 'gamble' ? [pool[pool.length - 1]] : pool.filter(e => ids.includes(e.card.id));
@@ -613,8 +615,8 @@ function statusMessage() {
   if (!g.stack.length) return 'Your lead: play any card.';
   const top = g.stack[g.stack.length - 1].card;
   return top.suit === g.trumpSuit
-    ? `Beat ${M.label(top)} with a higher trump, or pick up the first card.`
-    : `Beat ${M.label(top)} with a higher ${top.suit} or any trump (${g.trumpSuit}), or pick up the first card.`;
+    ? `Beat ${M.label(top)} with a higher trump, or pick up the first lay.`
+    : `Beat ${M.label(top)} with a higher ${top.suit} or any trump (${g.trumpSuit}), or pick up the first lay.`;
 }
 
 // Highest card laid so far in the current round of laying (round 1).
@@ -866,6 +868,8 @@ function renderHand(myTurn) {
 
   $('pickup').hidden = g.round !== 2 || me.out;
   $('pickup').disabled = !(myTurn && g.stack.length);
+  const firstLay = g.round === 2 && g.stack.length ? M.firstLay(g) : [];
+  $('pickup').textContent = firstLay.length > 1 ? `Pick up first run (${firstLay.length} cards)` : 'Pick up first card';
   $('keepBtn').hidden = !(myTurn && extraRank);
 }
 

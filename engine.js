@@ -277,13 +277,18 @@
     }
   }
 
+  // The cards of the first lay still on the stack (a run's cards share one lay id).
+  const firstLay = g => g.stack.filter(e => e.lay === g.stack[0].lay);
+
   function r2PickUp(g, p) {
     if (g.over || g.round !== 2 || g.turn !== p) throw new Error('Not your turn');
     if (!g.stack.length) throw new Error('Nothing to pick up');
-    const e = g.stack.shift(); // the first card laid on the stack
-    g.players[p].hand.push(e.card);
+    // Pick up the first lay on the stack: one card, or the whole run if it was a run.
+    const taken = firstLay(g);
+    g.stack.splice(0, taken.length);
+    g.players[p].hand.push(...taken.map(e => e.card));
     g.lastTrick = null;
-    log(g, say(g, p, 'pick up', 'picks up') + ' ' + label(e.card) + '.', p);
+    log(g, say(g, p, 'pick up', 'picks up') + ' ' + taken.map(e => label(e.card)).join(' ') + '.', p);
     g.turn = nextActive(g, p);
   }
 
@@ -375,7 +380,7 @@
     return r2Play(g, g.turn, move);
   }
 
-  const api = { createGame, r1Play, r1Extra, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
+  const api = { createGame, firstLay, r1Play, r1Extra, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Mattis = api;
 })(typeof window !== 'undefined' ? window : globalThis);
