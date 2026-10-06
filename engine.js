@@ -25,7 +25,9 @@
     return names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
   };
 
-  function createGame(numPlayers, rng = Math.random) {
+  const DIFFICULTIES = ['easy', 'normal', 'hard'];
+
+  function createGame(numPlayers, rng = Math.random, difficulty = 'normal') {
     const n = Math.max(2, Math.min(8, numPlayers | 0));
     const deck = [];
     for (const suit of SUITS) for (let rank = 2; rank <= 14; rank++) deck.push({ id: rankName(rank) + suit, suit, rank });
@@ -37,7 +39,9 @@
       n, rng, players, deck,
       trumpCard: deck[0], // bottom card of the deck, hidden until round 1 ends
       trumpOwner: null, trumpSuit: null,
+      difficulty: DIFFICULTIES.includes(difficulty) ? difficulty : 'normal',
       round: 1, turn: 0, r1: null,
+      r2Start: null, // everyone's hand at the start of round 2, for the end-of-game summary
       lastDraws: [], // cards drawn by the last round-1 action: { p, id } or { p, trump: true }
       stack: [], discard: [], lastTrick: null, lays: 0,
       finishOrder: [], over: false, loser: null, log: [],
@@ -192,6 +196,7 @@
       pl.pile = [];
     }
     g.players[g.trumpOwner].hand.push(g.trumpCard);
+    g.r2Start = g.players.map(pl => pl.hand.slice());
     g.stack = [];
     log(g, 'Round 1 over! The trump is ' + label(g.trumpCard) + '. ' + say(g, g.trumpOwner, 'have it and start round 2.', 'has it and starts round 2.'), g.trumpOwner);
     g.players.forEach((pl, i) => {
@@ -307,7 +312,13 @@
   const worth = c => (c.rank >= 11 ? c.rank - 9 : c.rank >= 9 ? 1 : 0); // J=2, Q=3, K=4, A=5
 
   function aiMove(g) {
-    const p = g.turn, pl = g.players[p], rng = g.rng;
+    if (g.difficulty === 'easy') return aiEasy(g);
+    if (g.difficulty === 'hard') return g.round === 1 ? aiHardR1(g) : aiHardR2(g);
+    return aiNormal(g);
+  }
+
+  function aiNormal(g) {
+    const p = g.turn, pl = g.players[p];
     if (g.round === 1) {
       const move = aiR1(g, p);
       if (g.r1.extra) return move;
@@ -374,13 +385,112 @@
     return run.length > 1 ? run.map(x => x.id) : c.id;
   }
 
+  // ----- Easy: plays sensibly only part of the time; otherwise random, sometimes picks up for no reason -----
+  function aiEasy(g) {
+    const p = g.turn, hand = g.players[p].hand, rng = g.rng;
+    if (rng() < 0.6) return aiNormal(g);
+    const pick = arr => arr[Math.floor(rng() * arr.length)];
+    if (g.round === 1) {
+      if (g.r1.extra) return rng() < 0.5 ? hand.filter(c => c.rank === g.r1.extra.rank).map(c => c.id) : 'keep';
+      if (canGamble(g) && (!hand.length || rng() < 0.15)) return 'gamble';
+      return pick(hand).id;
+    }
+    const legal = legalCards(g, p);
+    if (g.stack.length && (!legal.length || rng() < 0.04)) return 'pickup';
+    return pick(legal).id;
+  }
+
+  // ----- Hard: weighs stacks, steers battles, plans runs and trumps -----
+  // In round 1 high cards are worth collecting, but low cards are a burden to shed in round 2.
+  const hardWorth = c => (c.rank >= 11 ? c.rank - 9 : c.rank >= 9 ? 0.5 : -0.6);
+
+  function aiHardR1(g) {
+    const p = g.turn, pl = g.players[p], rng = g.rng, r1 = g.r1;
+    const hand = pl.hand.slice().sort((a, b) => a.rank - b.rank);
+    const sameAs = c => hand.filter(h => h.rank === c.rank);
+    // Shed low cards together; keep good ones single.
+    const lay = c => (c.rank <= 8 && sameAs(c).length > 1 ? sameAs(c).map(h => h.id) : c.id);
+    if (r1.extra) return r1.extra.rank <= 8 ? hand.filter(c => c.rank === r1.extra.rank).map(c => c.id) : 'keep';
+    const gamble = canGamble(g);
+    if (!hand.length) return 'gamble';
+    const plays = r1.plays;
+    const others = new Set(plays.filter(e => e.by !== p).map(e => e.card.rank));
+    const pairs = c => others.has(c.rank); // laying this would start a battle
+    const lowest = hand[0], highest = hand[hand.length - 1];
+    const stackWorth = g.stack.reduce((s, e) => s + hardWorth(e.card), 0);
+
+    if (!plays.length) {
+      if (r1.battle) return stackWorth > 0 ? highest.id : lowest.id;
+      if (gamble && lowest.rank >= 11) return 'gamble'; // every card is worth keeping
+      return lay(lowest);
+    }
+    const best = Math.max(...plays.map(e => e.card.rank));
+    const last = r1.idx === r1.order.length - 1;
+    // Picky: every card collected must be shed in round 2, so only take clearly good stacks.
+    const want = r1.battle ? stackWorth > 0 : stackWorth + (last ? 0 : 1) > 4;
+    if (want) {
+      if (last) {
+        const clean = hand.find(c => c.rank > best && !pairs(c));
+        if (clean) return clean.id;
+        // Can't beat it cleanly: match the top card and battle for it, if we have ammunition.
+        const match = hand.find(c => c.rank === best);
+        if (match && hand.some(c => c !== match && c.rank >= 11)) return match.id;
+      } else {
+        const strong = hand.slice().reverse().find(c => c.rank > best && !pairs(c));
+        if (strong && strong.rank >= 11) return strong.id;
+      }
+      if (gamble && rng() < 0.3) return 'gamble';
+    }
+    // Not worth it (or can't win it): dodge with a low card that doesn't drag us into a battle.
+    const dodge = hand.find(c => c.rank < best && !pairs(c));
+    if (dodge) return lay(dodge);
+    if (gamble) return 'gamble';
+    return (hand.find(c => !pairs(c)) || lowest).id;
+  }
+
+  function aiHardR2(g) {
+    const p = g.turn, hand = g.players[p].hand, rng = g.rng;
+    const isTrump = c => c.suit === g.trumpSuit;
+    const asc = (a, b) => a.rank - b.rank;
+    const runFrom = c => {
+      const run = [c];
+      for (let next; (next = hand.find(h => h.suit === c.suit && h.rank === run[run.length - 1].rank + 1));) run.push(next);
+      return run;
+    };
+    const ids = cards => (cards.length > 1 ? cards.map(c => c.id) : cards[0].id);
+    if (!g.stack.length) {
+      // A little randomness keeps unbeatable leads from cycling forever.
+      if (rng() < 0.2) return hand[Math.floor(rng() * hand.length)].id;
+      const plain = hand.filter(c => !isTrump(c));
+      const pool = plain.length ? plain : hand;
+      let best = null;
+      for (const c of pool) {
+        const run = runFrom(c);
+        if (!best || run.length > best.length || (run.length === best.length && c.rank < best[0].rank)) best = run;
+      }
+      if (best.length > 1) return ids(best);
+      const count = s => hand.filter(c => c.suit === s).length;
+      return pool.slice().sort((a, b) => count(b.suit) - count(a.suit) || asc(a, b))[0].id;
+    }
+    const legal = legalCards(g, p).sort(asc);
+    if (!legal.length) return 'pickup';
+    const top = g.stack[g.stack.length - 1].card;
+    const sameSuit = legal.filter(c => c.suit === top.suit);
+    if (sameSuit.length) {
+      const c = sameSuit[0];
+      return !isTrump(c) || hand.length <= 5 ? ids(runFrom(c)) : c.id;
+    }
+    // Only a trump beats it: always worth it. A trump sheds a card; picking up only adds cards.
+    return legal[0].id;
+  }
+
   function act(g, move) {
     if (g.round === 1) return g.r1.extra ? r1Extra(g, g.turn, move) : r1Play(g, g.turn, move);
     if (move === 'pickup') return r2PickUp(g, g.turn);
     return r2Play(g, g.turn, move);
   }
 
-  const api = { createGame, firstLay, r1Play, r1Extra, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
+  const api = { createGame, DIFFICULTIES, firstLay, r1Play, r1Extra, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Mattis = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -210,6 +210,35 @@
   .modal h3 { font-family: var(--serif); margin: 18px 0 6px; color: var(--gold-2); }
   .modal p, .modal li { line-height: 1.5; color: #e7e2d8; }
   .modal ul { padding-left: 20px; margin: 0; }
+  .setup .field { margin: 18px 0; }
+  .flabel { display: block; font-weight: 600; margin-bottom: 8px; }
+  .setup small { color: var(--muted); }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  .seg button { width: 46px; height: 46px; border-radius: 10px; border: 1px solid var(--panel-line); background: rgba(255,255,255,.06);
+    color: var(--text); font-weight: 700; font-size: 1rem; cursor: pointer; }
+  .seg button.on { background: linear-gradient(180deg, var(--gold-2), var(--gold)); color: var(--gold-ink); border-color: transparent; }
+  .diffs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .diff { text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 12px; cursor: pointer;
+    border: 1px solid var(--panel-line); background: rgba(255,255,255,.05); color: var(--text); font: inherit; }
+  .diff .ic { font-size: 1.7rem; line-height: 1; }
+  .diff b { font-family: var(--serif); font-size: 1.15rem; }
+  .diff small { font-size: .8rem; line-height: 1.35; }
+  .diff.on { border-color: var(--gold); background: rgba(242,184,75,.12); box-shadow: 0 0 0 2px rgba(242,184,75,.35); }
+  .row-end { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+  .modal.wide { max-width: 780px; }
+  .result { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; padding: 12px 10px; border-top: 1px solid var(--panel-line); }
+  .result.loser { background: rgba(185,28,28,.14); border-radius: 10px; border-top-color: transparent; }
+  .result .avatar { width: 42px; height: 42px; grid-row: span 3; }
+  .result .head { display: flex; align-items: center; gap: 8px; font-weight: 600; font-family: var(--serif); font-size: 1.05rem; }
+  .result .lbl { font-size: .78rem; color: var(--muted); margin-top: 6px; }
+  .mini { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+  .mini img { width: 34px; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.45); }
+  @media (max-width: 560px) {
+    .diffs { grid-template-columns: 1fr; }
+    .diff { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; }
+    .diff .ic { grid-row: span 2; }
+    .mini img { width: 28px; }
+  }
   .modal .credit { font-size: .75rem; color: var(--muted); margin-top: 18px; }
   .modal .credit a { color: var(--muted); }
 
@@ -278,8 +307,7 @@
 <header class="topbar">
   <div class="brand"><span class="spade">♠</span> Mattis</div>
   <div class="controls">
-    <label for="players">Players</label>
-    <select id="players" class="select"></select>
+    <button class="btn" id="settingsChip" title="Change players and difficulty"></button>
     <button class="btn gold" id="newGame">▶ New game</button>
     <button class="btn" id="rulesBtn">📖 Rules</button>
   </div>
@@ -364,11 +392,38 @@
   </div>
 </div>
 
+<div class="overlay" id="setup" hidden>
+  <div class="modal setup">
+    <h2>New game</h2>
+    <div class="field">
+      <span class="flabel">Players</span>
+      <div class="seg" id="playerSeg"></div>
+      <small>You plus <b id="cpuCount"></b> computer players</small>
+    </div>
+    <div class="field">
+      <span class="flabel">Difficulty</span>
+      <div class="diffs" id="diffs">
+        <button class="diff" data-d="easy"><span class="ic">🙂</span><b>Easy</b><small>Relaxed opponents who often make mistakes.</small></button>
+        <button class="diff" data-d="normal"><span class="ic">😐</span><b>Normal</b><small>Sensible opponents with simple tactics.</small></button>
+        <button class="diff" data-d="hard"><span class="ic">😈</span><b>Hard</b><small>Sharp opponents: picky about stacks, steer battles, play trumps instead of picking up.</small></button>
+      </div>
+    </div>
+    <div class="row-end">
+      <button class="btn" id="cancelSetup">Cancel</button>
+      <button class="btn gold" id="startGame">▶ Start game</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="over" hidden>
-  <div class="modal">
+  <div class="modal wide">
     <h2 id="overTitle"></h2>
     <p id="overText"></p>
-    <button class="btn gold" id="again">▶ Play again</button>
+    <div id="results"></div>
+    <div class="row-end">
+      <button class="btn" id="changeSetup">New game…</button>
+      <button class="btn gold" id="again">▶ Play again</button>
+    </div>
   </div>
 </div>
 
@@ -395,14 +450,42 @@ const COLORS = ['#3b82f6', '#a855f7', '#ec4899', '#f97316', '#14b8a6', '#eab308'
 const cssPx = name => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 80;
 const isWide = () => window.innerWidth >= 1000;
 
-for (let n = 2; n <= 8; n++) $('players').add(new Option(n + ' players', n, n === 4, n === 4));
-try { const saved = localStorage.getItem('mattis-players'); if (saved) $('players').value = saved; } catch {}
+// Game settings, remembered between visits.
+const DIFF_NAMES = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
+let settings = { players: 4, difficulty: 'normal' };
+try {
+  const saved = JSON.parse(localStorage.getItem('mattis-settings') || 'null');
+  if (saved) settings = { ...settings, ...saved };
+  else if (localStorage.getItem('mattis-players')) settings.players = +localStorage.getItem('mattis-players');
+} catch {}
+let draft = { ...settings }; // choices in the New game dialog before pressing Start
+
+function openSetup() {
+  draft = { ...settings };
+  renderSetup();
+  $('over').hidden = true;
+  $('setup').hidden = false;
+  clearTimeout(timer); // computer players wait while the dialog is open
+}
+function renderSetup() {
+  const seg = $('playerSeg');
+  seg.innerHTML = '';
+  for (let n = 2; n <= 8; n++) {
+    const b = document.createElement('button');
+    b.textContent = n;
+    b.className = n === draft.players ? 'on' : '';
+    b.onclick = () => { draft.players = n; renderSetup(); };
+    seg.appendChild(b);
+  }
+  $('cpuCount').textContent = draft.players - 1;
+  document.querySelectorAll('.diff').forEach(b => b.classList.toggle('on', b.dataset.d === draft.difficulty));
+}
+document.querySelectorAll('.diff').forEach(b => { b.onclick = () => { draft.difficulty = b.dataset.d; renderSetup(); }; });
 
 function newGame() {
   clearTimeout(timer);
-  const n = +$('players').value;
-  try { localStorage.setItem('mattis-players', n); } catch {}
-  game = M.createGame(n);
+  game = M.createGame(settings.players, Math.random, settings.difficulty);
+  $('settingsChip').textContent = `${settings.players} players · ${DIFF_NAMES[game.difficulty]}`;
   sel = []; busy = false; holdStack = null; stackOpen = false;
   document.querySelectorAll('.flycard').forEach(el => el.remove()); // drop animations from the old game
   $('banner').classList.remove('show');
@@ -901,23 +984,62 @@ function renderPanels() {
 
 function schedule() {
   clearTimeout(timer);
-  if (busy || game.over || game.turn === 0) return;
+  if (busy || game.over || game.turn === 0 || !$('setup').hidden) return;
   // Computer players take a moment to "think".
   timer = setTimeout(() => performMove(M.aiMove(game)), 1100 + Math.random() * 700);
 }
 
 function showGameOver() {
   const g = game;
-  const safe = g.finishOrder.map(nameOf);
   $('overTitle').textContent = g.loser === 0 ? 'You lost! 😬' : 'You are safe! 🎉';
-  $('overText').textContent = (g.loser === 0
+  $('overText').textContent = g.loser === 0
     ? 'You were the last one holding cards.'
-    : `${nameOf(g.loser)} was the last one holding cards.`) + ` Order out of cards: ${safe.join(', ')}.`;
+    : `${nameOf(g.loser)} was the last one holding cards.`;
+  const ordinal = n => n + (['th', 'st', 'nd', 'rd'][n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] || 'th');
+  const order = g.finishOrder.concat(g.loser !== null ? [g.loser] : []);
+  const results = $('results');
+  results.innerHTML = '';
+  order.forEach((p, i) => {
+    const loser = p === g.loser;
+    const row = document.createElement('div');
+    row.className = 'result' + (loser ? ' loser' : '');
+    row.appendChild(avatarEl(p));
+    const body = document.createElement('div');
+    body.innerHTML = `<div class="head">${nameOf(p)} <span class="tag ${loser ? 'lose' : 'safe'}">${loser ? 'Loser' : ordinal(i + 1) + ' out'}</span></div>`;
+    if (loser && g.players[p].hand.length) {
+      body.insertAdjacentHTML('beforeend', `<div class="lbl">Left holding ${g.players[p].hand.length} card${g.players[p].hand.length === 1 ? '' : 's'}</div>`);
+      body.appendChild(miniCards(g.players[p].hand));
+    }
+    const start = g.r2Start ? g.r2Start[p] : [];
+    body.insertAdjacentHTML('beforeend', `<div class="lbl">Started round 2 with ${start.length} card${start.length === 1 ? '' : 's'}</div>`);
+    body.appendChild(miniCards(start));
+    row.appendChild(body);
+    results.appendChild(row);
+  });
   setTimeout(() => { if (game === g) $('over').hidden = false; }, 1200);
 }
 
-$('newGame').onclick = newGame;
+function miniCards(cards) {
+  const wrap = document.createElement('div');
+  wrap.className = 'mini';
+  const isTrump = c => c.suit === game.trumpSuit;
+  cards.slice().sort((a, b) => isTrump(a) - isTrump(b) || M.SUITS.indexOf(a.suit) - M.SUITS.indexOf(b.suit) || a.rank - b.rank)
+    .forEach(c => { const img = new Image(); img.src = cardSrc(c); img.alt = img.title = M.label(c); wrap.appendChild(img); });
+  return wrap;
+}
+
+$('newGame').onclick = openSetup;
+$('settingsChip').onclick = openSetup;
 $('again').onclick = newGame;
+$('changeSetup').onclick = openSetup;
+$('startGame').onclick = () => {
+  settings = { ...draft };
+  try { localStorage.setItem('mattis-settings', JSON.stringify(settings)); } catch {}
+  $('setup').hidden = true;
+  newGame();
+};
+$('cancelSetup').onclick = () => { $('setup').hidden = true; render(); };
+$('setup').addEventListener('click', e => { if (e.target.id === 'setup') $('cancelSetup').onclick(); });
 $('playBtn').onclick = () => { if (sel.length) performMove(game.round === 2 || sel.length > 1 ? sel.slice() : sel[0]); };
 $('keepBtn').onclick = () => performMove('keep');
 $('chance').onclick = () => performMove('gamble');
