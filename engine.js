@@ -104,8 +104,9 @@
     g.lastDraws = [];
     if (move === 'gamble') {
       if (!canGamble(g)) throw new Error('Cannot gamble now');
-      layCards(g, p, [g.deck.pop()], 'gamble');
-      return nextLayer(g);
+      const card = g.deck.pop();
+      layCards(g, p, [card], 'gamble');
+      return offerExtra(g, p, card.rank); // holding the same value as the flipped card? may lay it too
     }
     const cards = takeSameValue(g, p, Array.isArray(move) ? move : [move]);
     layCards(g, p, cards, 'hand');

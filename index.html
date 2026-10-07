@@ -71,6 +71,7 @@
   /* Table */
   .tablebox { position: relative; }
   .rim {
+    will-change: transform; /* own layer: its big shadows are drawn once */
     position: absolute; inset: 0; border-radius: 50%; padding: 22px;
     background: linear-gradient(160deg, #8a5630 0%, #4a2a15 30%, #6e4224 55%, #3a2010 80%, #7b4b29 100%);
     box-shadow: 0 40px 90px rgba(0,0,0,.65), inset 0 2px 3px rgba(255,220,180,.35), inset 0 -4px 8px rgba(0,0,0,.5);
@@ -112,7 +113,8 @@
   .fan .more { align-self: center; margin-left: 8px; font-size: .78rem; color: var(--muted); }
 
   /* Cards */
-  .card { position: relative; flex: none; border-radius: 7%; transition: transform .15s ease, box-shadow .15s ease, opacity .15s; }
+  .card { position: relative; flex: none; border-radius: 7%; transition: transform .15s ease, opacity .15s; }
+  .hand .card, .stackpile .played { will-change: transform; }
   .card img { display: block; width: 100%; border-radius: 6%; box-shadow: 0 6px 16px rgba(0,0,0,.45); pointer-events: none; user-select: none; }
   .card.trump-suit::after { content: ''; position: absolute; inset: -3px; border-radius: 9%; border: 3px solid var(--gold); pointer-events: none; }
 
@@ -143,7 +145,7 @@
   }
   .ghost { visibility: hidden !important; }
   .stackpile .played.tied .card img { box-shadow: 0 0 0 3px #f97316, 0 0 22px rgba(249,115,22,.85); }
-  .banner { position: absolute; left: 50%; top: 50%; z-index: 9; pointer-events: none; opacity: 0;
+  .banner { position: absolute; left: 50%; top: 50%; z-index: 9; pointer-events: none; opacity: 0; will-change: transform, opacity;
     transform: translate(-50%, -50%) scale(.6); transition: opacity .25s, transform .35s cubic-bezier(.2,1.4,.4,1);
     padding: 14px 30px; border-radius: 16px; background: linear-gradient(180deg, #ea580c, #9a3412); color: #fff7ed;
     font-family: var(--serif); font-size: 1.7rem; font-weight: 700; white-space: nowrap; text-align: center;
@@ -162,7 +164,7 @@
   .deck .count { margin-top: 14px; }
   .flycard { position: fixed; z-index: 50; pointer-events: none; perspective: 900px; will-change: transform, opacity; }
   .flycard .inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
-  .flycard img { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 6%; box-shadow: 0 14px 30px rgba(0,0,0,.55); }
+  .flycard img { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 6%; box-shadow: 0 8px 18px rgba(0,0,0,.5); }
   .flycard .back { transform: rotateY(180deg); }
   .stackpile .played .by { font-size: .78rem; padding: 3px 10px; border-radius: 8px; background: rgba(0,0,0,.45); white-space: nowrap; max-width: var(--label-w, 100%); overflow: hidden; text-overflow: ellipsis; }
   .played .by.battle { background: rgba(194,65,12,.85); }
@@ -369,7 +371,7 @@
       <li>Everyone always holds 3 cards. When you lay one, you draw a new one.</li>
       <li>Got two or three cards of the same value? You may lay them together (you draw back up to 3).</li>
       <li>Click a card to select it, click it again to deselect it, and press <b>Play</b> (or double-click a card) to lay your selection.</li>
-      <li>Drew another card of the value you just laid? You may lay that one too, or keep it.</li>
+      <li>Drew another card of the value you just laid, or did your Chance card match a card in your hand? You may lay that one too, or keep it.</li>
       <li>Instead of laying from your hand, you can press <b>Chance card</b> on the deck: the top card of the deck is laid instead, and your hand stays the same.</li>
       <li>Everyone lays one card. When all have laid, the <b>highest card takes the whole stack</b>.</li>
       <li>But if two or more cards have the <b>same value</b> (two 3s, two kings…), those players <b>battle</b>: each lays another card, and the highest takes it all, including any higher card on the table. Tie again? Battle again.</li>
@@ -563,28 +565,38 @@ const handCard = id => document.querySelector(`#hand .card[data-id="${id}"]`);
 const stackCard = id => document.querySelector(`#stackpile .played[data-id="${id}"] .card`);
 
 // Fly a copy of a card from one rect to another. flip: 'up' (back→face), 'down' (face→back), 'back' (stay face-down).
-function fly({ card, from, to, flip = null, duration = 450, delay = 0, fade = false, arc = 24 }) {
-  if (reduceMotion || !from || !to) return Promise.resolve();
+async function fly({ card, from, to, flip = null, duration = 450, delay = 0, fade = false, arc = 24 }) {
+  if (reduceMotion || !from || !to) return;
   duration *= pace(); delay *= pace();
   const el = document.createElement('div');
   el.className = 'flycard';
-  el.style.cssText = `left:${from.left}px;top:${from.top}px;width:${from.width}px;height:${from.width * 1.45}px`;
+  el.style.cssText = `left:${from.left}px;top:${from.top}px;width:${from.width}px;height:${from.width * 1.45}px;visibility:hidden`;
   el.innerHTML = `<div class="inner"><img class="front" alt="" src="${card ? cardSrc(card) : 'cards/back.png'}"><img class="back" alt="" src="cards/back.png"></div>`;
   document.body.appendChild(el);
+  // Make sure the pictures are decoded first, so the card doesn't blink or jump as it takes off.
+  await Promise.race([Promise.all([...el.querySelectorAll('img')].map(i => i.decode().catch(() => {}))), sleep(150)]);
+  el.style.visibility = '';
   const dx = to.left + to.width / 2 - (from.left + from.width / 2);
   const dy = to.top + to.width * 0.725 - (from.top + from.width * 0.725);
   const s = to.width / from.width;
-  const timing = { duration, delay, easing: 'cubic-bezier(.25,.8,.25,1)', fill: 'both' };
-  const a = el.animate([
-    { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1 },
-    { transform: `translate(${dx * .5}px,${dy * .5 - arc}px) scale(${(1 + s) / 2 * 1.06}) rotate(-4deg)`, opacity: 1, offset: .5 },
-    { transform: `translate(${dx}px,${dy}px) scale(${s}) rotate(0deg)`, opacity: fade ? 0 : 1 },
-  ], timing);
+  const timing = { duration, delay, easing: 'cubic-bezier(.3,.7,.25,1)', fill: 'both' };
+  // A smooth arc, sampled finely (two straight segments would kink in the middle).
+  const frames = [];
+  for (let i = 0; i <= 16; i++) {
+    const t = i / 16, lift = 4 * t * (1 - t);
+    frames.push({
+      transform: `translate(${dx * t}px,${dy * t - arc * lift}px) scale(${1 + (s - 1) * t + 0.06 * lift}) rotate(${-4 * Math.sin(Math.PI * t)}deg)`,
+      opacity: fade ? 1 - t * t : 1,
+      offset: t,
+    });
+  }
+  const a = el.animate(frames, timing);
   const inner = el.firstChild, back = 'rotateY(180deg)', face = 'rotateY(0deg)';
   if (flip === 'up') inner.animate([{ transform: back }, { transform: face }], timing);
   else if (flip === 'down') inner.animate([{ transform: face }, { transform: back }], timing);
   else if (flip === 'back') inner.style.transform = back;
-  return a.finished.then(() => el.remove(), () => el.remove());
+  try { await a.finished; } catch {}
+  el.remove();
 }
 
 function reveal(id) {
@@ -750,6 +762,7 @@ function statusMessage() {
   if (g.round === 1) {
     const r1 = g.r1;
     if (r1.extra) return `You have another ${M.rankName(r1.extra.rank)}! Lay it too, or keep it.`;
+    // (also offered after a Chance card that matches a value in your hand)
     const best = bestPlay();
     if (r1.battle) {
       const others = r1.order.filter(p => p !== 0).map(nameOf).join(', ');
