@@ -31,8 +31,8 @@
   /* ---------- Top bar ---------- */
   .topbar {
     display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-    padding: 12px 28px; background: rgba(8,12,10,.78); border-bottom: 1px solid var(--panel-line);
-    backdrop-filter: blur(6px); position: relative; z-index: 5;
+    padding: 12px 28px; background: #0b100d; border-bottom: 1px solid var(--panel-line);
+    position: relative; z-index: 5;
   }
   .brand { display: flex; align-items: center; gap: 12px; font-family: var(--serif); font-size: 2.1rem; font-weight: 700; letter-spacing: .01em; }
   .brand .spade { font-size: 2.2rem; line-height: 1; }
@@ -80,10 +80,6 @@
     background:
       radial-gradient(ellipse at 50% 42%, #2f8253 0%, #1d633d 50%, #12452a 100%);
     box-shadow: inset 0 0 70px rgba(0,0,0,.6), inset 0 0 0 2px rgba(0,0,0,.35);
-  }
-  .felt::before { /* subtle felt texture */
-    content: ''; position: absolute; inset: 0; border-radius: 50%; opacity: .18; mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   .felt::after { content: ''; position: absolute; inset: 24% 26%; border-radius: 50%; border: 1px solid rgba(255,255,255,.09); }
 
@@ -164,7 +160,7 @@
   .chance { position: absolute; left: 50%; bottom: -16px; transform: translateX(-50%); z-index: 2; height: 34px; padding: 0 14px; font-size: .82rem; border-radius: 999px; white-space: nowrap; }
   .chance:disabled { opacity: .55; filter: grayscale(.4); }
   .deck .count { margin-top: 14px; }
-  .flycard { position: fixed; z-index: 50; pointer-events: none; perspective: 900px; }
+  .flycard { position: fixed; z-index: 50; pointer-events: none; perspective: 900px; will-change: transform, opacity; }
   .flycard .inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
   .flycard img { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 6%; box-shadow: 0 14px 30px rgba(0,0,0,.55); }
   .flycard .back { transform: rotateY(180deg); }
@@ -206,7 +202,7 @@
   .scores .row .num { font-family: var(--serif); font-weight: 700; font-size: 1.15rem; }
 
   /* Overlays */
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 16px; z-index: 20; backdrop-filter: blur(3px); }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 16px; z-index: 20; }
   .overlay[hidden] { display: none; }
   .modal { background: #18201b; border: 1px solid var(--panel-line); border-radius: 16px; padding: 26px; max-width: 560px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
   .modal h2 { margin: 0 0 10px; font-family: var(--serif); font-size: 1.7rem; }
@@ -219,6 +215,7 @@
   .seg { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
   .seg button { width: 46px; height: 46px; border-radius: 10px; border: 1px solid var(--panel-line); background: rgba(255,255,255,.06);
     color: var(--text); font-weight: 700; font-size: 1rem; cursor: pointer; }
+  .seg.wide button { width: auto; padding: 0 18px; }
   .seg button.on { background: linear-gradient(180deg, var(--gold-2), var(--gold)); color: var(--gold-ink); border-color: transparent; }
   .diffs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .diff { text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 12px; cursor: pointer;
@@ -281,7 +278,7 @@
     .status { padding: 8px 14px; }
     .status .sep { display: none; }
     .tablebox { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
-    .rim, .felt, .felt::before { border-radius: 28px; }
+    .rim, .felt { border-radius: 28px; }
     .rim { padding: 10px; }
     .felt::after { display: none; }
     .seats, .center, .me { position: relative; }
@@ -379,20 +376,20 @@
       <li>More than one pair (say two 6s and two 9s)? Only the highest pair battles.</li>
       <li>Don't want the stack? Lay low and let someone else take it.</li>
       <li>Whoever takes the stack starts the next round.</li>
-      <li>The last card in the deck is the hidden <b>trump</b>. Whoever would draw it gets it, revealed after round 1.</li>
+      <li>The last card in the deck is the hidden <b>trumf</b>. Whoever would draw it gets it, revealed after round 1.</li>
       <li>When the deck is gone, keep laying without drawing (players with no cards sit out). When only one player has cards left, they take them, and round 1 is over.</li>
     </ul>
     <h3>Round 2: Get rid of your cards</h3>
     <ul>
-      <li>Your collected cards (plus any left in your hand) become your hand. The trump holder starts.</li>
-      <li>Beat the top card with a higher card of the same suit, or with a trump. Over a trump you need a higher trump.</li>
+      <li>Your collected cards (plus any left in your hand) become your hand. The trumf holder starts.</li>
+      <li>Beat the top card with a higher card of the same suit, or with a trumf. Over a trumf you need a higher trumf.</li>
       <li>Got cards of the same suit in a row, like 5♥ 6♥ 7♥ 8♥? Lay them all at once as a <b>run</b>. The lowest card must beat the top card, and the run counts as one lay.</li>
       <li>Can't or won't beat it? Pick up the <b>first lay</b> on the stack: one card, or the whole run if the first lay was a run.</li>
       <li>When every player has laid a card, the stack goes out and whoever played last starts again.</li>
       <li>Run out of cards and you're safe. <b>The last player holding cards loses.</b></li>
-      <li><b>Blå:</b> a player who collected no cards in round 1. If only one player is blå, everyone gives up their 2, 3, 4 and 5: the blå player gets the trump 2–5 and the other 5s, and the other 2s, 3s and 4s leave the game.</li>
+      <li><b>Blå:</b> a player who collected no cards in round 1. If only one player is blå, everyone gives up their 2, 3, 4 and 5: the blå player gets the trumf 2–5 and the other 5s, and the other 2s, 3s and 4s leave the game.</li>
       <li>If several players are blå, nobody gives up cards. Blå players start with nothing and must pick up on their turn. If there's nothing to pick up when their turn comes, they're out and safe.</li>
-      <li>If the trump holder collected nothing, they only hold the trump: they lay it to start round 2 and are out.</li>
+      <li>If the trumf holder collected nothing, they only hold the trumf: they lay it to start round 2 and are out.</li>
     </ul>
     <p class="credit">Card artwork: <a href="https://github.com/htdebeer/SVG-cards" target="_blank" rel="noopener">SVG-cards</a> by David Bellot and Huub de Beer (LGPL-2.1). Avatars: <a href="https://www.dicebear.com" target="_blank" rel="noopener">DiceBear</a>.</p>
     <button class="btn gold" id="closeRules">Got it</button>
@@ -412,8 +409,15 @@
       <div class="diffs" id="diffs">
         <button class="diff" data-d="easy"><span class="ic">🙂</span><b>Easy</b><small>Relaxed opponents who often make mistakes.</small></button>
         <button class="diff" data-d="normal"><span class="ic">😐</span><b>Normal</b><small>Sensible opponents with simple tactics.</small></button>
-        <button class="diff" data-d="hard"><span class="ic">😈</span><b>Hard</b><small>Sharp opponents: picky about stacks, steer battles, play trumps instead of picking up.</small></button>
+        <button class="diff" data-d="hard"><span class="ic">😈</span><b>Hard</b><small>Sharp opponents: picky about stacks, steer battles, play trumf cards instead of picking up.</small></button>
       </div>
+    </div>
+    <div class="field">
+      <span class="flabel">Speed</span>
+      <div class="seg wide" id="speedSeg">
+        <button data-s="slow">Relaxed</button><button data-s="normal">Normal</button><button data-s="fast">Fast</button>
+      </div>
+      <small>How long the computer players think, and how fast cards move.</small>
     </div>
     <div class="row-end">
       <button class="btn" id="cancelSetup">Cancel</button>
@@ -460,7 +464,9 @@ const isWide = () => window.innerWidth >= 1000;
 
 // Game settings, remembered between visits.
 const DIFF_NAMES = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
-let settings = { players: 4, difficulty: 'normal' };
+let settings = { players: 4, difficulty: 'normal', speed: 'normal' };
+const SPEEDS = { slow: 1.5, normal: 1, fast: 0.5 }; // multiplies thinking time and animation length
+const pace = () => SPEEDS[settings.speed] || 1;
 try {
   const saved = JSON.parse(localStorage.getItem('mattis-settings') || 'null');
   if (saved) settings = { ...settings, ...saved };
@@ -487,13 +493,15 @@ function renderSetup() {
   }
   $('cpuCount').textContent = draft.players - 1;
   document.querySelectorAll('.diff').forEach(b => b.classList.toggle('on', b.dataset.d === draft.difficulty));
+  document.querySelectorAll('#speedSeg button').forEach(b => b.classList.toggle('on', b.dataset.s === draft.speed));
 }
 document.querySelectorAll('.diff').forEach(b => { b.onclick = () => { draft.difficulty = b.dataset.d; renderSetup(); }; });
+document.querySelectorAll('#speedSeg button').forEach(b => { b.onclick = () => { draft.speed = b.dataset.s; renderSetup(); }; });
 
 function newGame() {
   clearTimeout(timer);
   game = M.createGame(settings.players, Math.random, settings.difficulty);
-  $('settingsChip').textContent = `${settings.players} players · ${DIFF_NAMES[game.difficulty]}`;
+  $('settingsChip').textContent = `${settings.players} players · ${DIFF_NAMES[game.difficulty]}` + (settings.speed !== 'normal' ? ` · ${settings.speed === 'fast' ? 'Fast' : 'Relaxed'}` : '');
   sel = []; busy = false; holdStack = null; stackOpen = false;
   document.querySelectorAll('.flycard').forEach(el => el.remove()); // drop animations from the old game
   $('banner').classList.remove('show');
@@ -506,8 +514,12 @@ function newGame() {
 
 const nameOf = p => game.players[p].name;
 
-function avatarEl(p) {
+const avatarCache = new Map();
+function avatarEl(p, place = 'seat') {
+  const key = place + ':' + p;
+  if (avatarCache.has(key)) return avatarCache.get(key);
   const el = document.createElement('div');
+  avatarCache.set(key, el);
   el.className = 'avatar';
   const name = game.players[p].name;
   el.style.background = COLORS[p % COLORS.length];
@@ -553,6 +565,7 @@ const stackCard = id => document.querySelector(`#stackpile .played[data-id="${id
 // Fly a copy of a card from one rect to another. flip: 'up' (back→face), 'down' (face→back), 'back' (stay face-down).
 function fly({ card, from, to, flip = null, duration = 450, delay = 0, fade = false, arc = 24 }) {
   if (reduceMotion || !from || !to) return Promise.resolve();
+  duration *= pace(); delay *= pace();
   const el = document.createElement('div');
   el.className = 'flycard';
   el.style.cssText = `left:${from.left}px;top:${from.top}px;width:${from.width}px;height:${from.width * 1.45}px`;
@@ -647,7 +660,7 @@ async function performMove(move) {
       if (game !== g) return; // a new game was started meanwhile
     }
     if (resolved) {
-      await sleep(reduceMotion ? 600 : 1000); // let everyone see the result
+      await sleep((reduceMotion ? 600 : 1000) * pace()); // let everyone see the result
       if (game !== g) return; // a new game was started meanwhile
       await collect(resolved);
       if (game !== g) return; // a new game was started meanwhile
@@ -668,7 +681,7 @@ async function showBanner(title, sub, cls, ms) {
   b.innerHTML = `${title}<small>${sub}</small>`;
   void b.offsetWidth; // restart the pop-in transition
   b.classList.add('show');
-  await sleep(reduceMotion ? 900 : ms);
+  await sleep(reduceMotion ? 900 : ms * pace());
   b.classList.remove('show');
   await sleep(250);
 }
@@ -685,7 +698,7 @@ async function startRound2Show(g) {
   if (g.blueMoves) {
     const { to, moved, out } = g.blueMoves;
     await showBanner(`🔵 ${to === 0 ? 'You are' : nameOf(to) + ' is'} blå!`,
-      `Everyone gives up their 2, 3, 4 and 5. ${to === 0 ? 'You get' : nameOf(to) + ' gets'} the trump 2–5 and the other 5s; the other 2s, 3s and 4s leave the game.`, 'blue', 2800);
+      `Everyone gives up their 2, 3, 4 and 5. ${to === 0 ? 'You get' : nameOf(to) + ' gets'} the trumf 2–5 and the other 5s; the other 2s, 3s and 4s leave the game.`, 'blue', 2800);
     if (game !== g) return;
     const w = cssPx('--mid-w');
     const felt = document.querySelector('.felt').getBoundingClientRect();
@@ -750,8 +763,8 @@ function statusMessage() {
   if (!g.stack.length) return 'Your lead: play any card.';
   const top = g.stack[g.stack.length - 1].card;
   return top.suit === g.trumpSuit
-    ? `Beat ${M.label(top)} with a higher trump, or pick up the first lay.`
-    : `Beat ${M.label(top)} with a higher ${top.suit} or any trump (${g.trumpSuit}), or pick up the first lay.`;
+    ? `Beat ${M.label(top)} with a higher trumf, or pick up the first lay.`
+    : `Beat ${M.label(top)} with a higher ${top.suit} or any trumf (${g.trumpSuit}), or pick up the first lay.`;
 }
 
 // Highest card laid so far in the current round of laying (round 1).
@@ -774,8 +787,8 @@ function render() {
 
   $('round').innerHTML = g.over ? 'Game over' : g.round === 1 ? 'Round 1 <span>· Collecting</span>' : 'Round 2 <span>· Shed your cards</span>';
   $('trump').innerHTML = g.trumpSuit
-    ? `<span class="diamond">◆</span> Trump: <span class="suit${M.isRed(g.trumpCard) ? ' red' : ''}">${g.trumpSuit}</span>`
-    : '<span class="diamond">◆</span> Trump: hidden';
+    ? `<span class="diamond">◆</span> Trumf: <span class="suit${M.isRed(g.trumpCard) ? ' red' : ''}">${g.trumpSuit}</span>`
+    : '<span class="diamond">◆</span> Trumf: hidden';
   $('msg').textContent = statusMessage();
   $('msg').className = 'msg' + (myTurn ? ' you' : '');
 
@@ -812,12 +825,12 @@ function renderDeck(myTurn) {
       }
     } else pile.innerHTML = '<div class="empty"></div>';
     $('deckCount').innerHTML = g.deck.length > 1
-      ? `${g.deck.length - 1} cards<br><small>+ hidden trump</small>`
-      : g.deck.length ? 'Only the trump<br><small>is left</small>' : 'Deck empty';
+      ? `${g.deck.length - 1} cards<br><small>+ hidden trumf</small>`
+      : g.deck.length ? 'Only the trumf<br><small>is left</small>' : 'Deck empty';
   } else {
     // Just the suit: the trump card itself is in a player's hand (or played), so don't show it twice.
-    pile.innerHTML = `<div class="trumptile${M.isRed(g.trumpCard) ? ' red' : ''}" title="Trump suit">${g.trumpSuit}</div>`;
-    $('deckCount').innerHTML = `Trump<br><small>${g.trumpOwner === 0 ? 'You' : nameOf(g.trumpOwner)} drew ${M.label(g.trumpCard)}</small>`;
+    pile.innerHTML = `<div class="trumptile${M.isRed(g.trumpCard) ? ' red' : ''}" title="Trumf suit">${g.trumpSuit}</div>`;
+    $('deckCount').innerHTML = `Trumf<br><small>${g.trumpOwner === 0 ? 'You' : nameOf(g.trumpOwner)} drew ${M.label(g.trumpCard)}</small>`;
   }
   const chance = $('chance');
   chance.hidden = g.round !== 1 || g.deck.length < 2;
@@ -886,7 +899,7 @@ function seatEl(i) {
     if (g.r1.battle && g.r1.order.includes(i)) tags += '<span class="tag battle">Battle</span>';
     else if (g.r1.leader === i) tags += '<span class="tag">Leads</span>';
   }
-  if (g.round === 1 && g.trumpOwner === i) tags += '<span class="tag trump">Trump</span>';
+  if (g.round === 1 && g.trumpOwner === i) tags += '<span class="tag trump">Trumf</span>';
   if (g.round === 2 && pl.blue) tags += '<span class="tag blue">Blå</span>';
   if (pl.out) tags += '<span class="tag safe">Safe</span>';
   if (g.over && g.loser === i) tags += '<span class="tag lose">Loser</span>';
@@ -917,7 +930,7 @@ function seatEl(i) {
 function renderHand(myTurn) {
   const g = game, me = g.players[0];
   $('me').className = 'me' + (myTurn ? ' turn' : '');
-  if (!$('myAvatar').childElementCount) $('myAvatar').replaceWith(Object.assign(avatarEl(0), { id: 'myAvatar' }));
+  if (!$('myAvatar').childElementCount) $('myAvatar').replaceWith(Object.assign(avatarEl(0, 'me'), { id: 'myAvatar' }));
 
   // Deciding whether to lay another card of the value just laid: only those cards can be played.
   const extraRank = g.round === 1 && g.r1 && g.r1.extra ? g.r1.extra.rank : null;
@@ -1031,7 +1044,7 @@ function renderPanels() {
   rows.forEach((r, idx) => {
     const row = document.createElement('div');
     row.className = 'row' + (idx === 0 && r.n > 0 && g.round === 1 ? ' top' : '');
-    row.appendChild(avatarEl(r.i));
+    row.appendChild(avatarEl(r.i, 'score'));
     row.insertAdjacentHTML('beforeend', `<span class="nm">${nameOf(r.i)}</span><span class="num">${r.out ? '✓' : r.n}</span>`);
     scores.appendChild(row);
   });
@@ -1043,11 +1056,11 @@ function schedule() {
   if (game.turn === 0) {
     // No choice to make (pick up with no cards, or lay your only card): do it for you.
     const forced = M.forcedMove(game);
-    if (forced) timer = setTimeout(() => performMove(forced), 1400);
+    if (forced) timer = setTimeout(() => performMove(forced), 1400 * pace());
     return;
   }
   // Computer players take a moment to "think".
-  timer = setTimeout(() => performMove(M.aiMove(game)), 1100 + Math.random() * 700);
+  timer = setTimeout(() => performMove(M.aiMove(game)), (1100 + Math.random() * 700) * pace());
 }
 
 function showGameOver() {
@@ -1064,7 +1077,7 @@ function showGameOver() {
     const loser = p === g.loser;
     const row = document.createElement('div');
     row.className = 'result' + (loser ? ' loser' : '');
-    row.appendChild(avatarEl(p));
+    row.appendChild(avatarEl(p, 'result'));
     const body = document.createElement('div');
     body.innerHTML = `<div class="head">${nameOf(p)} <span class="tag ${loser ? 'lose' : 'safe'}">${loser ? 'Loser' : ordinal(i + 1) + ' out'}</span>${g.players[p].blue ? ' <span class="tag blue">Blå</span>' : ''}</div>`;
     if (loser && g.players[p].hand.length) {

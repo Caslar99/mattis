@@ -93,7 +93,7 @@
       g.deck.pop();
       g.trumpOwner = p;
       g.lastDraws.push({ p, trump: true });
-      log(g, say(g, p, 'get', 'gets') + ' the last card: the hidden trump. It is revealed after round 1.', p);
+      log(g, say(g, p, 'get', 'gets') + ' the last card: the hidden trumf. It is revealed after round 1.', p);
     }
   }
 
@@ -214,7 +214,7 @@
     g.players[g.trumpOwner].hand.push(g.trumpCard);
     g.r2Deal = g.players.map(pl => pl.hand.slice()); // hands as dealt, before any blå hand-over
     g.stack = [];
-    log(g, 'Round 1 over! The trump is ' + label(g.trumpCard) + '. ' + say(g, g.trumpOwner, 'have it and start round 2.', 'has it and starts round 2.'), g.trumpOwner);
+    log(g, 'Round 1 over! The trumf is ' + label(g.trumpCard) + '. ' + say(g, g.trumpOwner, 'have it and start round 2.', 'has it and starts round 2.'), g.trumpOwner);
     g.blueMoves = null;
     if (g.blue.length === 1) {
       // One blå player: everyone gives up their 2-5s. The blå player gets the trump 2-5 and the
@@ -230,7 +230,7 @@
       g.players[b].hand.push(...moved.map(m => m.card));
       g.blueMoves = { to: b, moved, out };
       log(g, say(g, b, 'are', 'is') + ' blå! Everyone gives up their 2, 3, 4 and 5. ' + say(g, b, 'get', 'gets') +
-        ' the trump 2-5 and the other 5s; the other 2s, 3s and 4s leave the game.', b);
+        ' the trumf 2-5 and the other 5s; the other 2s, 3s and 4s leave the game.', b);
     } else if (g.blue.length > 1) {
       log(g, listNames(g, g.blue) + ' are blå: they start with no cards and must pick up what is laid.');
     }
