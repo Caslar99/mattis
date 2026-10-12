@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Mattis</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -291,13 +291,96 @@
     .center { gap: 14px; }
     .play-btn { min-width: 200px; height: 48px; }
   }
+  /* ---------- Phones (portrait): one locked screen, oval table like the desktop ---------- */
   @media (max-width: 640px) {
-    .seats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .seat .fan { display: none; }
-    .seat .chip { width: 100%; padding: 5px 8px 5px 5px; gap: 8px; }
+    :root { --hand-w: 64px; --mid-w: 50px; --fan-w: 19px; }
+    html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+    body { position: fixed; inset: 0; display: flex; flex-direction: column; touch-action: manipulation;
+      -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+    .topbar { padding: 7px 10px; gap: 6px; flex-wrap: nowrap; flex: none; }
+    .brand { font-size: 1.3rem; gap: 6px; }
+    .brand .spade { font-size: 1.3rem; }
+    .controls { gap: 5px; flex-wrap: nowrap; min-width: 0; }
+    .select, .btn { height: 34px; padding: 0 9px; font-size: .78rem; border-radius: 9px; }
+    #settingsChip { max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 34px; }
+    .stage { flex: 1; min-height: 0; padding: 6px 10px 8px; gap: 6px; display: flex; flex-direction: column; }
+    .status { flex: none; padding: 5px 10px; gap: 1px 10px; border-radius: 10px; }
+    .status .round { font-size: .98rem; }
+    .status .trump { font-size: .8rem; }
+    .status .msg { font-size: .76rem; flex-basis: 100%; text-align: center; line-height: 1.25; }
+
+    /* The table takes whatever height is left */
+    .tablebox { flex: 1; min-height: 170px; position: relative; display: block; padding: 0; margin: 0 -14px; container-type: size; }
+    .rim, .felt { border-radius: 50%; }
+    .rim { padding: 9px; }
+    .felt::after { display: block; inset: 26% 24%; }
+    .seats { position: absolute; inset: 0; display: block; }
+    .seat { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); gap: 4px; }
+    .seat .chip { width: auto; padding: 3px 9px 3px 3px; gap: 6px; border-radius: 11px; }
+    .seat .fan { display: flex; }
+    .avatar { width: 28px; height: 28px; border-width: 1.5px; }
     .chip .who { align-items: flex-start; }
-    .chip .meta { font-size: .72rem; }
-    .avatar { width: 32px; height: 32px; }
+    .chip .name { font-size: .86rem; gap: 5px; }
+    .chip .meta { font-size: .64rem; }
+    .tag { font-size: .52rem; padding: 1px 5px; }
+    .seats.many .seat .chip { padding-right: 6px; }
+    .seats.many .avatar { width: 24px; height: 24px; }
+    .seats.many .chip .name { font-size: .74rem; }
+    .seats.many .chip .meta { font-size: .58rem; }
+    .seats.many .seat .fan { display: none; }
+    .seats.many .tag { font-size: 0; width: 8px; height: 8px; padding: 0; border-radius: 50%; } /* tags as coloured dots */
+    .center { position: absolute; left: 50%; top: 42%; transform: translateX(-50%); gap: 12px; max-width: 46%; z-index: 1; }
+    .divider { margin: 4px 0 26px; }
+    .chance { height: 26px; padding: 0 9px; font-size: .68rem; bottom: -12px; }
+    .deck .count { margin-top: 12px; font-size: .68rem; }
+    .deck .count small { font-size: .62rem; }
+    .stackpile { margin-bottom: 18px; }
+    .trick .caption { font-size: .66rem; max-width: 120px; }
+    .banner { font-size: 1.2rem; padding: 10px 18px; max-width: 92%; white-space: normal; }
+    .banner small { font-size: .72rem; max-width: 280px; }
+    @container (max-height: 290px) {
+      .seat .fan { display: none; }
+      .center { --mid-w: 40px; top: 44%; }
+      .deck .count { display: none; }
+      .trick .caption { display: none; }
+    }
+
+    /* You: chip on the table's edge, then hand and buttons */
+    .me { flex: none; gap: 5px; }
+    .me .chip { margin-top: -26px; position: relative; z-index: 3; padding: 3px 14px 3px 3px; }
+    .me .chip .avatar { width: 30px; height: 30px; }
+    .me .chip .name { font-size: .95rem; }
+    .hand { padding-top: 6px; min-height: calc(var(--hand-w) * 1.45 + 6px); }
+    .handcount { font-size: .66rem; min-height: 1em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .actions { gap: 6px; width: 100%; }
+    .actions .row { flex-wrap: nowrap; width: 100%; justify-content: center; gap: 8px; }
+    .play-btn { min-width: 0; flex: 1 1 auto; max-width: 300px; height: 42px; font-size: 1rem; }
+    #pickup, #keepBtn { height: 42px; font-size: .78rem; flex: none; }
+
+    /* Panels side by side at the bottom; only their own content scrolls */
+    .side { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; height: clamp(92px, 17dvh, 150px); }
+    .panel { padding: 8px 10px; border-radius: 11px; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+    .panel h3 { font-size: .86rem; margin: 0 0 4px; gap: 6px; flex: none; }
+    .moves ol, #scores { overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+    .moves li { font-size: .68rem; gap: 6px; padding: 3px 0; grid-template-columns: 8px 1fr auto; }
+    .moves li .dot { width: 6px; height: 6px; }
+    .moves li .time { font-size: .6rem; }
+    .scores .row { padding: 1px 4px; gap: 8px; }
+    .scores .row + .row { border-top: 0; }
+    .scores .row .avatar { width: 19px; height: 19px; border-width: 1px; }
+    .scores .row .nm { font-size: .72rem; }
+    .scores .row .num { font-size: .86rem; }
+  }
+  @media (max-width: 640px) and (max-height: 700px) {
+    :root { --hand-w: 56px; }
+    .status .msg { font-size: .72rem; }
+    .side { height: clamp(84px, 15dvh, 120px); }
+    .play-btn, #pickup, #keepBtn { height: 38px; }
+    .handcount { display: none; }
+  }
+  @media (max-width: 400px) {
+    #rulesBtn .lbl { display: none; }
   }
   @media (max-width: 480px) {
     :root { --hand-w: 64px; --mid-w: 54px; --fan-w: 22px; }
@@ -311,7 +394,7 @@
   <div class="controls">
     <button class="btn" id="settingsChip" title="Change players and difficulty"></button>
     <button class="btn gold" id="newGame">▶ New game</button>
-    <button class="btn" id="rulesBtn">📖 Rules</button>
+    <button class="btn" id="rulesBtn" aria-label="Rules">📖 <span class="lbl">Rules</span></button>
   </div>
 </header>
 
@@ -463,6 +546,7 @@ const AVATAR_BG = ['b6e3f4', 'c0aede', 'd1d4f9', 'ffd5dc', 'ffdfbf', 'c1f0c1', '
 const COLORS = ['#3b82f6', '#a855f7', '#ec4899', '#f97316', '#14b8a6', '#eab308', '#ef4444', '#22c55e'];
 const cssPx = name => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 80;
 const isWide = () => window.innerWidth >= 1000;
+const isPhone = () => window.innerWidth <= 640;
 
 // Game settings, remembered between visits.
 const DIFF_NAMES = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
@@ -503,7 +587,7 @@ document.querySelectorAll('#speedSeg button').forEach(b => { b.onclick = () => {
 function newGame() {
   clearTimeout(timer);
   game = M.createGame(settings.players, Math.random, settings.difficulty);
-  $('settingsChip').textContent = `${settings.players} players · ${DIFF_NAMES[game.difficulty]}` + (settings.speed !== 'normal' ? ` · ${settings.speed === 'fast' ? 'Fast' : 'Relaxed'}` : '');
+  $('settingsChip').textContent = (isPhone() ? `${settings.players}p · ` : `${settings.players} players · `) + DIFF_NAMES[game.difficulty] + (settings.speed !== 'normal' ? ` · ${settings.speed === 'fast' ? 'Fast' : 'Relaxed'}` : '');
   sel = []; busy = false; holdStack = null; stackOpen = false;
   document.querySelectorAll('.flycard').forEach(el => el.remove()); // drop animations from the old game
   $('banner').classList.remove('show');
@@ -788,6 +872,15 @@ function bestPlay() {
 
 function seatPositions(k) {
   // Opponents sit clockwise from your left, over the top, to your right.
+  if (isPhone()) {
+    if (k === 1) return [[50, 13]];
+    // More opponents: a wider arc that dips below the sides, so the chips don't crowd at the top.
+    const many = k >= 5, span = k <= 3 ? 180 : many ? 230 : 210, start = 180 - (span - 180) / 2;
+    return Array.from({ length: k }, (_, i) => {
+      const a = (start + span * i / (k - 1)) * Math.PI / 180;
+      return many ? [50 + 38 * Math.cos(a), 45 + 33 * Math.sin(a)] : [50 + 34 * Math.cos(a), 43 + 30 * Math.sin(a)];
+    });
+  }
   if (k === 1) return [[50, 14]];
   return Array.from({ length: k }, (_, i) => {
     const a = Math.PI * (1 + i / (k - 1));
@@ -807,12 +900,19 @@ function render() {
 
   const seats = $('seats');
   seats.innerHTML = '';
+  seats.classList.toggle('many', g.n - 1 >= 5); // compact seats with many opponents (phones)
   const pos = seatPositions(g.n - 1);
   for (let i = 1; i < g.n; i++) {
     const el = seatEl(i);
     el.style.setProperty('--x', pos[i - 1][0] + '%');
     el.style.setProperty('--y', pos[i - 1][1] + '%');
     seats.appendChild(el);
+  }
+  // Keep every seat fully on screen (matters on narrow phones).
+  for (const el of seats.children) {
+    const r = el.getBoundingClientRect(), edge = 4;
+    const shift = r.left < edge ? edge - r.left : r.right > window.innerWidth - edge ? window.innerWidth - edge - r.right : 0;
+    if (shift) el.style.marginLeft = shift + 'px';
   }
 
   renderDeck(myTurn);
@@ -918,7 +1018,7 @@ function seatEl(i) {
   if (g.over && g.loser === i) tags += '<span class="tag lose">Loser</span>';
   const hand = dealView ? dealView[i] : pl.hand;
   const meta = g.round === 1
-    ? `${hand.length} cards · ${pl.pile.length} collected`
+    ? (isPhone() && g.n > 5 ? `🂠 ${hand.length} · 🏆 ${pl.pile.length}` : `${hand.length} cards · ${pl.pile.length} ${isPhone() ? 'won' : 'collected'}`)
     : pl.out ? 'Out of cards' : `${hand.length} card${hand.length === 1 ? '' : 's'} left`;
   const who = document.createElement('div');
   who.className = 'who';
