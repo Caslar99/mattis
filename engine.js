@@ -183,7 +183,14 @@
     const tied = [...new Set(r1.plays.filter(e => e.card.rank === top).map(e => e.by))];
     // After the deck is gone a tied player may have nothing left to battle with.
     const fighters = tied.filter(p => canAct(g, p));
-    if (fighters.length <= 1) return awardR1(g, fighters.length ? fighters[0] : tied[0]);
+    if (fighters.length === 1) return awardR1(g, fighters[0]); // the only one who can battle on
+    if (!fighters.length) {
+      // Nobody has a card left to battle with: whoever laid the tied value last wins the stack.
+      const last = r1.plays.slice().reverse().find(e => e.card.rank === top).by;
+      log(g, 'Tied with ' + rankName(top) + ', but nobody has cards left to battle with. ' +
+        say(g, last, 'laid last and win it.', 'laid last and wins it.'), last);
+      return awardR1(g, last);
+    }
     r1.tiedIds = r1.plays.filter(e => e.card.rank === top).map(e => e.card.id);
     log(g, 'Battle! ' + listNames(g, fighters) + ' tied with ' + rankName(top) + '. They lay again, and the highest takes all.');
     r1.order = fighters;
