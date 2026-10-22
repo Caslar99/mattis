@@ -219,7 +219,7 @@
   .panel h3 { margin: 0 0 10px; font-family: var(--serif); font-size: 1.12rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
   .moves ol { list-style: none; margin: 0; padding: 0; position: relative; }
   .moves li { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: baseline; padding: 6px 0; font-size: .9rem; }
-  .moves li .dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.4); transform: translateY(-1px); }
+  .moves li .dot { width: 9px; height: 9px; border-radius: 50%; background: #60a5fa; transform: translateY(-1px); }
   .moves li.you .dot { background: var(--green); }
   .moves li .time { font-size: .78rem; color: var(--muted); }
   .scores .row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; }
@@ -337,111 +337,115 @@
     .center { gap: 14px; }
     .play-btn { min-width: 200px; height: 48px; }
   }
-  /* ---------- Phones (portrait): one locked screen, oval table like the desktop ---------- */
+  /* ---------- Phones (portrait): one locked screen, laid out exactly like the mockup ----------
+     Every size is the mockup's measurement (on a 430-wide phone) times --u, so the layout keeps the same
+     proportions on any phone; on short screens --u shrinks so everything still fits. */
   @media (max-width: 640px) {
-    :root { --hand-w: 68px; --mid-w: 54px; --fan-w: 22px; }
+    :root {
+      --u: calc(min(100vw, 480px, 53vh) / 430);
+      --hand-w: calc(75 * var(--u)); --hand-gap: calc(12 * var(--u)); --mid-w: calc(56 * var(--u)); --fan-w: calc(28 * var(--u));
+    }
+    @supports (height: 1dvh) { :root { --u: calc(min(100vw, 480px, 53dvh) / 430); } }
     html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
     body { position: fixed; inset: 0; display: flex; flex-direction: column; touch-action: manipulation;
       -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-    .topbar { padding: 8px 10px; gap: 6px; flex-wrap: nowrap; flex: none; }
-    .brand { font-size: 1.28rem; gap: 6px; flex: none; }
-    .brand .logo { width: 32px; height: 32px; }
-    .controls { gap: 5px; flex-wrap: nowrap; min-width: 0; flex: 1 1 auto; justify-content: flex-end; }
-    .select, .btn { height: 36px; padding: 0 10px; font-size: .78rem; border-radius: 11px; white-space: nowrap; gap: 6px; }
-    #settingsChip { min-width: 0; flex: 0 1 auto; padding: 0 9px; font-size: .7rem; gap: 7px; }
-    .controls .btn.gold { flex: none; padding: 0 10px; font-size: .74rem; }
-    #rulesBtn { width: 36px; padding: 0; justify-content: center; flex: none; }
+
+    /* Header: floats on the background, no bar */
+    .topbar { background: transparent; border: 0; padding: calc(8 * var(--u)) calc(14 * var(--u)) 0; gap: calc(8 * var(--u)); flex-wrap: nowrap; flex: none; }
+    .brand { font-size: calc(24 * var(--u)); gap: calc(8 * var(--u)); flex: none; }
+    .brand .logo { width: calc(39 * var(--u)); height: calc(39 * var(--u)); }
+    .controls { gap: calc(8 * var(--u)); flex-wrap: nowrap; min-width: 0; flex: 1 1 auto; justify-content: flex-end; }
+    .select, .btn { height: calc(35 * var(--u)); padding: 0 calc(12 * var(--u)); font-size: calc(12 * var(--u)); border-radius: calc(11 * var(--u)); white-space: nowrap; gap: calc(6 * var(--u)); }
+    #settingsChip { min-width: 0; flex: 0 1 auto; padding: 0 calc(9 * var(--u)); gap: calc(5 * var(--u)); font-size: calc(9.5 * var(--u)); }
+    .controls .btn.gold { flex: none; width: calc(92 * var(--u)); padding: 0; justify-content: center; font-size: calc(12.5 * var(--u)); font-weight: 700; }
+    #rulesBtn { width: calc(37 * var(--u)); padding: 0; justify-content: center; flex: none; }
     #rulesBtn .lbl { display: none; }
-    .stage { flex: 1; min-height: 0; padding: 6px 12px 8px; gap: 8px; display: flex; flex-direction: column; }
-    .status { flex: none; padding: 8px 12px; gap: 2px 10px; border-radius: 13px; }
-    .status .round { font-size: 1.08rem; }
-    .status .trump { font-size: .86rem; }
-    .status .msg { font-size: .82rem; flex-basis: 100%; text-align: center; line-height: 1.3; }
 
-    /* The table takes whatever height is left */
-    .tablebox { flex: 1; min-height: 170px; position: relative; display: block; padding: 0; margin: 0 -14px; container-type: size; }
+    .stage { flex: 1; min-height: 0; padding: calc(15 * var(--u)) calc(11 * var(--u)) calc(8 * var(--u)); gap: 0; display: flex; flex-direction: column; }
+    .status { flex: none; margin: 0 calc(13 * var(--u)); padding: calc(6 * var(--u)) calc(12 * var(--u)); gap: calc(3 * var(--u)) calc(10 * var(--u)); border-radius: calc(12 * var(--u)); min-height: calc(51 * var(--u)); }
+    .status .round { font-size: calc(17 * var(--u)); line-height: 1.2; }
+    .status .sep { display: block; height: calc(18 * var(--u)); }
+    .status .trump { font-size: calc(12.5 * var(--u)); }
+    .status .msg { font-size: calc(12 * var(--u)); flex-basis: 100%; text-align: center; line-height: 1.25; }
+
+    /* The table: takes the remaining height, the oval runs slightly past the screen edges */
+    .tablebox { flex: 1; min-height: 150px; position: relative; display: block; padding: 0; margin: calc(2 * var(--u)) calc(-18 * var(--u)) 0; container-type: size; }
     .rim, .felt { border-radius: 50%; }
-    .rim { padding: 9px; }
-    .felt::after { display: block; inset: 26% 24%; }
+    .rim { padding: calc(11 * var(--u)); }
+    .felt::after { display: block; inset: 27% 25%; }
     .seats { position: absolute; inset: 0; display: block; }
-    .seat { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); gap: 4px; }
-    .seat .chip { width: auto; padding: 4px 12px 4px 4px; gap: 8px; border-radius: 14px; }
-    .seat .fan { display: flex; }
-    .avatar { width: 32px; height: 32px; border-width: 1.5px; }
-    .chip .who { align-items: flex-start; }
-    .chip .name { font-size: .98rem; gap: 6px; }
-    .chip .meta { font-size: .72rem; }
-    .tag { font-size: .56rem; padding: 2px 6px; }
-    .seats.many .seat .chip { padding-right: 6px; }
-    .seats.many .avatar { width: 24px; height: 24px; }
-    .seats.many .chip .name { font-size: .74rem; }
-    .seats.many .chip .meta { font-size: .58rem; }
+    .seat { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); gap: calc(11 * var(--u)); }
+    .seat .chip { width: auto; min-width: calc(129 * var(--u)); padding: calc(6 * var(--u)) calc(14 * var(--u)) calc(6 * var(--u)) calc(6 * var(--u)); gap: calc(9 * var(--u)); border-radius: calc(12 * var(--u)); }
+    .avatar { width: calc(31 * var(--u)); height: calc(31 * var(--u)); border-width: 1.5px; }
+    .chip .who { align-items: flex-start; min-width: 0; }
+    .chip .name { font-size: calc(15 * var(--u)); gap: calc(6 * var(--u)); }
+    .chip .meta { font-size: calc(11 * var(--u)); }
+    .tag { font-size: calc(9 * var(--u)); padding: calc(2 * var(--u)) calc(7 * var(--u)); }
+    .seat .fan { display: flex; height: calc(var(--fan-w) * 1.55); }
+    .fan img { margin-left: calc(var(--fan-w) * -.3); }
+    .seats.many .seat .chip { min-width: 0; padding-right: calc(8 * var(--u)); }
+    .seats.many .avatar { width: calc(26 * var(--u)); height: calc(26 * var(--u)); }
+    .seats.many .chip .name { font-size: calc(12.5 * var(--u)); }
+    .seats.many .chip .meta { font-size: calc(10 * var(--u)); }
     .seats.many .seat .fan { display: none; }
-    .seats.many .tag { font-size: 0; width: 8px; height: 8px; padding: 0; border-radius: 50%; } /* tags as coloured dots */
-    .center { position: absolute; left: 50%; top: 40%; transform: translateX(-50%); gap: 12px; max-width: 46%; z-index: 1; }
-    .divider { margin: 4px 0 26px; }
-    .chance { height: 28px; padding: 0 11px; font-size: .74rem; bottom: -13px; }
-    .deck .count { margin-top: 14px; font-size: .8rem; }
-    .deck .count small { font-size: .7rem; }
-    .stackpile { margin-bottom: 18px; }
-    .trick .caption { font-size: .74rem; max-width: 130px; }
-    .banner { font-size: 1.2rem; padding: 10px 18px; max-width: 92%; white-space: normal; }
-    .banner small { font-size: .72rem; max-width: 280px; }
-    @container (max-height: 280px) {
-      .deck .count { display: none; }
+    .seats.many .tag { font-size: 0; width: calc(8 * var(--u)); height: calc(8 * var(--u)); padding: 0; border-radius: 50%; } /* tags as coloured dots */
+
+    /* Deck (with a smaller card peeking out behind it), Chance card under it, stack slot to the right */
+    .center { position: absolute; left: 35%; top: 38.5%; transform: none; gap: calc(26 * var(--u)); max-width: none; z-index: 1; align-items: flex-start; }
+    .divider { display: none; }
+    .deck { align-items: flex-start; gap: 0; }
+    .deckwrap { position: relative; }
+    .pile { width: calc(var(--mid-w) * 1.42); height: calc(var(--mid-w) * 1.47); }
+    .pile .peek { transform: none; left: calc(var(--mid-w) * .62); top: calc(var(--mid-w) * .5); width: calc(var(--mid-w) * .8); }
+    .chance { left: calc(var(--mid-w) / 2); transform: translateX(-50%); top: calc(var(--mid-w) * 1.47 + calc(3 * var(--u))); bottom: auto;
+      width: calc(97 * var(--u)); height: calc(24 * var(--u)); padding: 0; justify-content: center; font-size: calc(11.5 * var(--u)); border-radius: calc(7 * var(--u)); }
+    .deck .count { margin-top: calc(32 * var(--u)); width: var(--mid-w); text-align: center; white-space: nowrap; font-size: calc(12.5 * var(--u)); line-height: 1.35; overflow: visible; display: flex; flex-direction: column; align-items: center; }
+    .deck .count small { font-size: calc(11 * var(--u)); }
+    .trick { min-width: calc(69 * var(--u)); margin-top: calc(4 * var(--u)); gap: calc(10 * var(--u)); }
+    .stackpile { margin-bottom: calc(22 * var(--u)); }
+    .stackpile .empty { width: calc(69 * var(--u)); height: calc(88 * var(--u)); border-radius: calc(7 * var(--u)); }
+    .trick .caption { font-size: calc(11 * var(--u)); max-width: calc(140 * var(--u)); }
+    .banner { font-size: calc(20 * var(--u)); padding: calc(10 * var(--u)) calc(18 * var(--u)); max-width: 92%; white-space: normal; }
+    .banner small { font-size: calc(12 * var(--u)); max-width: calc(300 * var(--u)); }
+    @container (max-height: 260px) {
+      .deck .count, .trick .caption { display: none; }
     }
-    @container (max-height: 250px) {
+    @container (max-height: 215px) {
       .seat .fan { display: none; }
-      .center { --mid-w: 40px; top: 44%; }
-      .deck .count { display: none; }
-      .trick .caption { display: none; }
     }
 
-    /* You: chip on the table's edge, then hand and buttons */
-    .me { flex: none; gap: 5px; }
-    .me .chip { margin-top: -28px; position: relative; z-index: 3; padding: 4px 18px 4px 4px; border-radius: 16px; }
-    .me .chip .avatar { width: 34px; height: 34px; }
-    .me .chip .name { font-size: 1.05rem; }
-    .hand { padding-top: 6px; min-height: calc(var(--hand-w) * 1.45 + 6px); }
-    .handcount { font-size: .74rem; min-height: 1em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .actions { gap: 6px; width: 100%; }
-    .actions .row { flex-wrap: nowrap; width: 100%; justify-content: center; gap: 8px; }
-    .play-btn { min-width: 0; flex: 1 1 auto; max-width: 330px; height: 46px; font-size: 1.1rem; border-radius: 13px; }
-    #pickup, #keepBtn { height: 46px; font-size: .82rem; flex: none; border-radius: 13px; }
+    /* You: chip inside the table's bottom edge, then your cards, count and button */
+    .me { flex: none; gap: 0; }
+    .me .chip { margin-top: calc(-46 * var(--u)); height: calc(40 * var(--u)); min-width: calc(97 * var(--u)); position: relative; z-index: 3; padding: calc(4 * var(--u)) calc(16 * var(--u)) calc(4 * var(--u)) calc(4 * var(--u)); gap: calc(9 * var(--u)); border-radius: calc(14 * var(--u)); }
+    .me .chip .avatar { width: calc(32 * var(--u)); height: calc(32 * var(--u)); }
+    .me .chip .name { font-size: calc(16 * var(--u)); }
+    .hand { margin-top: calc(10 * var(--u)); padding-top: 0; min-height: calc(var(--hand-w) * 1.43); max-width: none; }
+    .handcount { font-size: calc(11 * var(--u)); margin-top: calc(7 * var(--u)); min-height: 1.2em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .actions { margin-top: calc(9 * var(--u)); gap: calc(6 * var(--u)); width: 100%; }
+    .actions .row { flex-wrap: nowrap; width: 100%; justify-content: center; gap: calc(8 * var(--u)); }
+    .play-btn { min-width: 0; flex: 0 1 calc(336 * var(--u)); height: calc(42 * var(--u)); font-size: calc(17 * var(--u)); border-radius: calc(10 * var(--u)); }
+    #pickup, #keepBtn { height: calc(42 * var(--u)); font-size: calc(12 * var(--u)); flex: none; border-radius: calc(10 * var(--u)); padding: 0 calc(12 * var(--u)); }
 
-    /* Panels side by side at the bottom; only their own content scrolls */
-    .side { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; height: clamp(112px, 19dvh, 175px); }
-    .panel { padding: 10px 12px; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
-    .panel h3 { font-size: 1.02rem; margin: 0 0 6px; gap: 7px; flex: none; }
+    /* Bottom panels: Recent moves (wider) and Collected cards */
+    .side { flex: none; display: grid; grid-template-columns: 221fr 178fr; gap: calc(10 * var(--u)); height: calc(138 * var(--u)); margin-top: calc(13 * var(--u)); }
+    .panel { padding: calc(10 * var(--u)) calc(14 * var(--u)) calc(4 * var(--u)); border-radius: calc(14 * var(--u)); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+    .panel h3 { font-size: calc(15 * var(--u)); margin: 0; padding-bottom: calc(7 * var(--u)); line-height: 1.15; gap: calc(8 * var(--u)); flex: none; border-bottom: 1px solid var(--panel-line); }
     .moves ol, #scores { overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
-    .moves li { font-size: .8rem; gap: 8px; padding: 5px 0; grid-template-columns: 9px 1fr auto; border-top: 1px solid var(--panel-line); }
-    .moves li .dot { width: 8px; height: 8px; }
-    .moves li .time { font-size: .7rem; }
-    .scores .row { padding: 3px 2px; gap: 9px; border-radius: 0; }
+    .moves li { font-size: calc(12 * var(--u)); gap: calc(10 * var(--u)); padding: calc(8 * var(--u)) 0; grid-template-columns: calc(8 * var(--u)) 1fr auto; border-bottom: 1px solid var(--panel-line); align-items: center; }
+    .moves li .dot { width: calc(8 * var(--u)); height: calc(8 * var(--u)); transform: none; }
+    .moves li .time { font-size: calc(11 * var(--u)); }
+    .scores .row { padding: calc(3 * var(--u)) 0; gap: calc(10 * var(--u)); border-radius: 0; border: 0; }
+    .scores .row + .row { border-top: 1px solid var(--panel-line); }
     .scores .row.top { background: none; border: 0; }
-    .scores .row .avatar { width: 24px; height: 24px; border-width: 1px; }
-    .scores .row .nm { font-size: .88rem; }
-    .scores .row .num { font-size: 1rem; }
-  }
-  @media (max-width: 640px) and (max-height: 700px) {
-    :root { --hand-w: 58px; --mid-w: 48px; --fan-w: 19px; }
-    .brand .logo { width: 30px; height: 30px; }
-    .status { padding: 6px 10px; }
-    .status .msg { font-size: .76rem; }
-    .side { height: clamp(90px, 15dvh, 125px); }
-    .moves li { font-size: .72rem; padding: 3px 0; }
-    .scores .row { padding: 1px 2px; }
-    .scores .row .avatar { width: 20px; height: 20px; }
-    .scores .row .nm { font-size: .78rem; }
-    .play-btn, #pickup, #keepBtn { height: 40px; }
-    .handcount { display: none; }
+    .scores .row .avatar { width: calc(24 * var(--u)); height: calc(24 * var(--u)); border-width: 1px; }
+    .scores .row .nm { font-size: calc(13 * var(--u)); }
+    .scores .row .num { font-size: calc(14 * var(--u)); }
   }
   @media (max-width: 400px) {
     #rulesBtn .lbl { display: none; }
   }
   @media (max-width: 480px) {
-    :root { --hand-w: 64px; --mid-w: 54px; --fan-w: 22px; }
     .controls label { display: none; }
   }
 </style>
@@ -619,7 +623,10 @@ const RANK_FILE = { 11: 'jack', 12: 'queen', 13: 'king', 14: '1' };
 const cardSrc = c => `cards/${SUIT_FILE[c.suit]}_${RANK_FILE[c.rank] || c.rank}.png`;
 const AVATAR_BG = ['b6e3f4', 'c0aede', 'd1d4f9', 'ffd5dc', 'ffdfbf', 'c1f0c1', 'f9e2ae', 'bde0fe'];
 const COLORS = ['#3b82f6', '#a855f7', '#ec4899', '#f97316', '#14b8a6', '#eab308', '#ef4444', '#22c55e'];
-const cssPx = name => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 80;
+const sizeProbe = Object.assign(document.createElement('div'), { style: 'position:absolute;visibility:hidden;height:0;pointer-events:none' });
+document.body.appendChild(sizeProbe);
+// Pixel value of a CSS size variable (works for calc() sizes too).
+const cssPx = name => { sizeProbe.style.width = `var(${name})`; return sizeProbe.getBoundingClientRect().width || 80; };
 const isWide = () => window.innerWidth >= 1000;
 const isPhone = () => window.innerWidth <= 640;
 
@@ -987,7 +994,7 @@ function bestPlay() {
 function seatAngles(k) {
   if (isPhone()) {
     if (k === 1) return [270];
-    if (k === 2) return [200, 340]; // high up on the left and right sides
+    if (k === 2) return [190, 350]; // high up on the left and right sides
     if (k === 3) return [195, 270, 345];
     const many = k >= 5, span = k <= 3 ? 180 : many ? 230 : 210, start = 180 - (span - 180) / 2;
     return Array.from({ length: k }, (_, i) => start + span * i / (k - 1));
@@ -1028,7 +1035,7 @@ function seatPositions(k) {
   // Opponents sit clockwise from your left, over the top, to your right.
   if (isPhone()) {
     if (k === 1) return [[50, 13]];
-    const [rx, cy, ry] = k >= 5 ? [38, 45, 33] : [34, 42, 30]; // more opponents: a wider arc that dips below the sides
+    const [rx, cy, ry] = k >= 5 ? [38, 45, 33] : [32, 43, 27]; // more opponents: a wider arc that dips below the sides
     return seatAngles(k).map(d => [50 + rx * Math.cos(d * Math.PI / 180), cy + ry * Math.sin(d * Math.PI / 180)]);
   }
   if (k === 1) return [[50, 14]];
@@ -1038,10 +1045,11 @@ function seatPositions(k) {
 const SPEED_NAMES = { slow: 'Relaxed', normal: 'Regular', fast: 'Fast' };
 function updateChip() {
   const speed = SPEED_NAMES[settings.speed] || 'Regular';
-  const narrow = window.innerWidth < 410; // most phones: leave out the default speed so it fits
-  const text = (isPhone() ? `${settings.players}p` : `${settings.players} players`) + ` · ${DIFF_NAMES[game.difficulty]}` + (narrow && speed === 'Regular' ? '' : ` · ${speed}`);
+  const base = (isPhone() ? `${settings.players}p` : `${settings.players} players`) + ` · ${DIFF_NAMES[game.difficulty]}`;
   $('settingsChip').innerHTML = `<span class="chip-text"></span><span class="chev" aria-hidden="true"></span>`;
-  $('settingsChip').querySelector('.chip-text').textContent = text;
+  const label = $('settingsChip').querySelector('.chip-text');
+  label.textContent = `${base} · ${speed}`;
+  if (label.scrollWidth > label.clientWidth + 1) label.textContent = base; // too narrow: leave out the speed
 }
 
 function render() {
@@ -1246,7 +1254,8 @@ function renderHand(myTurn) {
   hand.innerHTML = '';
   const cw = cssPx('--hand-w');
   const avail = hand.clientWidth || 600;
-  const step = sorted.length > 1 ? Math.min(cw + 12, (avail - cw) / (sorted.length - 1)) : 0;
+  const gapPx = isPhone() ? cssPx('--hand-gap') : 12;
+  const step = sorted.length > 1 ? Math.min(cw + gapPx, (avail - cw) / (sorted.length - 1)) : 0;
   sorted.forEach((c, i) => {
     const el = cardEl(c);
     if (i) el.style.marginLeft = (step - cw) + 'px';
@@ -1299,7 +1308,7 @@ function renderHand(myTurn) {
 
 function renderPanels() {
   const g = game;
-  const fmt = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const fmt = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   $('moves').innerHTML = g.log.slice(-7).reverse()
     .map(e => `<li class="${e.p === 0 ? 'you' : ''}"><span class="dot"></span><span>${e.text}</span><span class="time">${fmt(e.t)}</span></li>`)
     .join('');
