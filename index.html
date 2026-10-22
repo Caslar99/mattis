@@ -25,6 +25,7 @@
     --green: #3ccf6e;
     --hand-w: 110px; --mid-w: 92px; --fan-w: 40px;
     --serif: 'Playfair Display', Georgia, serif;
+    --felt-1: #236240; --felt-2: #164a2e; --felt-3: #0c311e; /* table colour (darker green by default) */
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
@@ -37,6 +38,14 @@
   }
   button, select, input { font: inherit; }
   [hidden] { display: none !important; }
+  body[data-table="blue"] { --felt-1: #22567a; --felt-2: #163c58; --felt-3: #0b2539; }
+  body[data-table="wine"] { --felt-1: #6a2633; --felt-2: #4a1823; --felt-3: #2c0d14; }
+  body[data-table="charcoal"] { --felt-1: #3b4046; --felt-2: #26292e; --felt-3: #141619; }
+  body[data-table="classic"] { --felt-1: #2f8253; --felt-2: #1d633d; --felt-3: #12452a; }
+  /* Curved arrows around the table showing which way play goes */
+  .arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; overflow: visible; }
+  .arrows path { fill: none; stroke: rgba(255,255,255,.3); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 2 7; }
+  .arrows .head { fill: rgba(255,255,255,.5); stroke: none; }
 
   /* ---------- Top bar ---------- */
   .topbar {
@@ -89,7 +98,7 @@
   .felt {
     width: 100%; height: 100%; border-radius: 50%; position: relative;
     background:
-      radial-gradient(ellipse at 50% 42%, #2f8253 0%, #1d633d 50%, #12452a 100%);
+      radial-gradient(ellipse at 50% 42%, var(--felt-1) 0%, var(--felt-2) 50%, var(--felt-3) 100%);
     box-shadow: inset 0 0 70px rgba(0,0,0,.6), inset 0 0 0 2px rgba(0,0,0,.35);
   }
   .felt::after { content: ''; position: absolute; inset: 24% 26%; border-radius: 50%; border: 1px solid rgba(255,255,255,.09); }
@@ -236,6 +245,26 @@
   .diff b { font-family: var(--serif); font-size: 1.15rem; }
   .diff small { font-size: .8rem; line-height: 1.35; }
   .diff.on { border-color: var(--gold); background: rgba(242,184,75,.12); box-shadow: 0 0 0 2px rgba(242,184,75,.35); }
+  .swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+  .swatches button { width: 44px; height: 44px; border-radius: 50%; cursor: pointer; border: 2px solid rgba(255,255,255,.18);
+    background: radial-gradient(circle at 40% 35%, var(--sw1), var(--sw2)); }
+  .swatches button.on { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(242,184,75,.35); }
+  .swatches [data-t="green"] { --sw1: #236240; --sw2: #0c311e; }
+  .swatches [data-t="classic"] { --sw1: #2f8253; --sw2: #12452a; }
+  .swatches [data-t="blue"] { --sw1: #22567a; --sw2: #0b2539; }
+  .swatches [data-t="wine"] { --sw1: #6a2633; --sw2: #2c0d14; }
+  .swatches [data-t="charcoal"] { --sw1: #3b4046; --sw2: #141619; }
+  .styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; }
+  .styles button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--panel-line); background: rgba(255,255,255,.05); color: var(--text); font: inherit; font-size: .72rem; }
+  .styles button.on { border-color: var(--gold); background: rgba(242,184,75,.12); }
+  .styles img { width: 40px; height: 40px; border-radius: 50%; background: #c0aede; }
+  .names { display: grid; gap: 6px; margin-bottom: 6px; }
+  .names .nrow { display: grid; grid-template-columns: 36px 1fr 40px; gap: 8px; align-items: center; }
+  .names .avatar { width: 36px; height: 36px; }
+  .names input { height: 38px; border-radius: 9px; border: 1px solid var(--panel-line); background: rgba(255,255,255,.06); color: var(--text); padding: 0 10px; font-size: .9rem; min-width: 0; }
+  .names input:focus { outline: 2px solid var(--gold); outline-offset: -1px; }
+  .names .shuffle { height: 38px; border-radius: 9px; border: 1px solid var(--panel-line); background: rgba(255,255,255,.06); cursor: pointer; font-size: 1rem; }
   .row-end { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
   .modal.wide { max-width: 780px; }
   .result { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; padding: 12px 10px; border-top: 1px solid var(--panel-line); }
@@ -418,6 +447,7 @@
 
   <div class="tablebox">
     <div class="rim"><div class="felt"></div></div>
+    <svg class="arrows" id="arrows" aria-hidden="true"></svg>
     <div class="seats" id="seats"></div>
     <div class="banner" id="banner"></div>
     <div class="center">
@@ -515,6 +545,21 @@
       </div>
       <small>How long the computer players think, and how fast cards move.</small>
     </div>
+    <div class="field">
+      <span class="flabel">Table colour</span>
+      <div class="swatches" id="tableSeg">
+        <button data-t="green" title="Dark green"></button><button data-t="classic" title="Light green"></button><button data-t="blue" title="Blue"></button><button data-t="wine" title="Wine"></button><button data-t="charcoal" title="Charcoal"></button>
+      </div>
+    </div>
+    <div class="field">
+      <span class="flabel">Profile pictures</span>
+      <div class="styles" id="styleSeg"></div>
+    </div>
+    <div class="field">
+      <span class="flabel">Names</span>
+      <div class="names" id="nameList"></div>
+      <small>Tap 🔀 to give someone a different picture.</small>
+    </div>
     <div class="row-end">
       <button class="btn" id="cancelSetup">Cancel</button>
       <button class="btn gold" id="startGame">▶ Start game</button>
@@ -561,7 +606,7 @@ const isPhone = () => window.innerWidth <= 640;
 
 // Game settings, remembered between visits.
 const DIFF_NAMES = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
-let settings = { players: 4, difficulty: 'normal', speed: 'normal' };
+let settings = { players: 4, difficulty: 'normal', speed: 'normal', table: 'green', avatarStyle: 'avataaars', names: [], seeds: [] };
 const SPEEDS = { slow: 1.5, normal: 1, fast: 0.5 }; // multiplies thinking time and animation length
 const pace = () => SPEEDS[settings.speed] || 1;
 try {
@@ -570,9 +615,22 @@ try {
   else if (localStorage.getItem('mattis-players')) settings.players = +localStorage.getItem('mattis-players');
 } catch {}
 let draft = { ...settings }; // choices in the New game dialog before pressing Start
+const AVATAR_STYLES = [
+  ['avataaars', 'Cartoon'], ['adventurer', 'Adventurer'], ['lorelei', 'Sketch'], ['notionists', 'Doodle'],
+  ['personas', 'Personas'], ['big-smile', 'Smiley'], ['bottts', 'Robots'], ['fun-emoji', 'Emoji'], ['pixel-art', 'Pixel'],
+];
+const defaultName = p => (p === 0 ? 'You' : M.NAMES[p]);
+const playerName = (s, p) => (String((s.names || [])[p] || '').trim().slice(0, 14) || defaultName(p));
+// Picture for player p: depends on the style and a per-player shuffle number, not on the name.
+function avatarUrl(s, p) {
+  const seed = M.NAMES[p] + p + ((s.seeds || [])[p] ? '-' + s.seeds[p] : '');
+  return `https://api.dicebear.com/9.x/${s.avatarStyle || 'avataaars'}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${AVATAR_BG[p % AVATAR_BG.length]}`;
+}
+document.body.dataset.table = settings.table;
 
 function openSetup() {
-  draft = { ...settings };
+  draft = { ...settings, names: (settings.names || []).slice(), seeds: (settings.seeds || []).slice() };
+  $('nameList').innerHTML = ''; // don't carry over half-typed names from a cancelled dialog
   renderSetup();
   $('over').hidden = true;
   $('setup').hidden = false;
@@ -591,13 +649,38 @@ function renderSetup() {
   $('cpuCount').textContent = draft.players - 1;
   document.querySelectorAll('.diff').forEach(b => b.classList.toggle('on', b.dataset.d === draft.difficulty));
   document.querySelectorAll('#speedSeg button').forEach(b => b.classList.toggle('on', b.dataset.s === draft.speed));
+  document.querySelectorAll('#tableSeg button').forEach(b => b.classList.toggle('on', b.dataset.t === draft.table));
+  const styles = $('styleSeg');
+  styles.innerHTML = '';
+  for (const [id, label] of AVATAR_STYLES) {
+    const b = document.createElement('button');
+    b.className = id === draft.avatarStyle ? 'on' : '';
+    b.innerHTML = `<img alt="" src="${avatarUrl({ ...draft, avatarStyle: id }, 1)}"><span>${label}</span>`;
+    b.onclick = () => { draft.avatarStyle = id; renderSetup(); };
+    styles.appendChild(b);
+  }
+  const list = $('nameList');
+  // Keep typed names when re-rendering (e.g. after changing the player count).
+  list.querySelectorAll('input').forEach(inp => { draft.names[+inp.dataset.p] = inp.value; });
+  list.innerHTML = '';
+  for (let p = 0; p < draft.players; p++) {
+    const row = document.createElement('div');
+    row.className = 'nrow';
+    row.innerHTML = `<div class="avatar" style="background:${COLORS[p % COLORS.length]}"><img alt="" src="${avatarUrl(draft, p)}"></div>` +
+      `<input data-p="${p}" maxlength="14" placeholder="${defaultName(p)}" aria-label="Name for player ${p + 1}">` +
+      `<button class="shuffle" title="Different picture" aria-label="Different picture">🔀</button>`;
+    row.querySelector('input').value = draft.names[p] || '';
+    row.querySelector('.shuffle').onclick = () => { draft.seeds[p] = (draft.seeds[p] || 0) + 1; renderSetup(); };
+    list.appendChild(row);
+  }
 }
 document.querySelectorAll('.diff').forEach(b => { b.onclick = () => { draft.difficulty = b.dataset.d; renderSetup(); }; });
 document.querySelectorAll('#speedSeg button').forEach(b => { b.onclick = () => { draft.speed = b.dataset.s; renderSetup(); }; });
+document.querySelectorAll('#tableSeg button').forEach(b => { b.onclick = () => { draft.table = b.dataset.t; renderSetup(); }; });
 
 function newGame() {
   clearTimeout(timer);
-  game = M.createGame(settings.players, Math.random, settings.difficulty);
+  game = M.createGame(settings.players, Math.random, settings.difficulty, Array.from({ length: 8 }, (_, p) => playerName(settings, p)));
   updateChip();
   sel = []; busy = false; holdStack = null; stackOpen = false;
   document.querySelectorAll('.flycard').forEach(el => el.remove()); // drop animations from the old game
@@ -622,7 +705,7 @@ function avatarEl(p, place = 'seat') {
   el.style.background = COLORS[p % COLORS.length];
   const img = new Image();
   img.alt = '';
-  img.src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(name + p)}&backgroundColor=${AVATAR_BG[p % AVATAR_BG.length]}`;
+  img.src = avatarUrl(settings, p);
   img.onerror = () => { img.remove(); el.textContent = name[0]; };
   el.appendChild(img);
   return el;
@@ -881,6 +964,45 @@ function bestPlay() {
   return plays.reduce((b, e) => (!b || e.card.rank > b.card.rank ? e : b), null);
 }
 
+// Seat angles on the oval (degrees, screen coordinates: 90 = bottom/you, 180 = left, 270 = top).
+function seatAngles(k) {
+  if (isPhone()) {
+    if (k === 1) return [270];
+    const many = k >= 5, span = k <= 3 ? 180 : many ? 230 : 210, start = 180 - (span - 180) / 2;
+    return Array.from({ length: k }, (_, i) => start + span * i / (k - 1));
+  }
+  if (k === 1) return [270];
+  return Array.from({ length: k }, (_, i) => 180 + 180 * i / (k - 1));
+}
+
+// Faint curved arrows along the table edge, between the seats, pointing the way play goes (clockwise).
+function drawArrows() {
+  const svg = $('arrows'), box = document.querySelector('.tablebox');
+  const W = box.clientWidth, H = box.clientHeight;
+  if (!W || !H) return;
+  const phone = isPhone();
+  const [cx, cy, rx, ry] = phone ? [.5, .5, .455, .44] : [.5, .5, .445, .42];
+  const pt = deg => { const a = deg * Math.PI / 180; return [W * (cx + rx * Math.cos(a)), H * (cy + ry * Math.sin(a))]; };
+  const seats = [90, ...seatAngles(game.n - 1)].sort((a, b) => a - b); // you sit at the bottom (90°)
+  const gap = phone ? 15 : 11;
+  let out = '';
+  for (let i = 0; i < seats.length; i++) {
+    const from = seats[i] + gap, to = (i + 1 < seats.length ? seats[i + 1] : seats[0] + 360) - gap;
+    if (to - from < 10) continue;
+    const pts = [];
+    for (let d = from; d <= to; d += 2) pts.push(pt(d));
+    out += `<path d="M${pts.map(q => q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' L')}"/>`;
+    // arrowhead at the end, pointing along the curve
+    const [x2, y2] = pt(to), [x1, y1] = pt(to - 3);
+    const ang = Math.atan2(y2 - y1, x2 - x1), s = 9;
+    const tip = [x2 + Math.cos(ang) * s, y2 + Math.sin(ang) * s];
+    const l = [x2 + Math.cos(ang + 2.5) * s, y2 + Math.sin(ang + 2.5) * s], r = [x2 + Math.cos(ang - 2.5) * s, y2 + Math.sin(ang - 2.5) * s];
+    out += `<polygon class="head" points="${[tip, l, r].map(q => q.map(v => v.toFixed(1)).join(',')).join(' ')}"/>`;
+  }
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = out;
+}
+
 function seatPositions(k) {
   // Opponents sit clockwise from your left, over the top, to your right.
   if (isPhone()) {
@@ -924,6 +1046,7 @@ function render() {
     el.style.setProperty('--y', pos[i - 1][1] + '%');
     seats.appendChild(el);
   }
+  drawArrows();
   // Keep every seat fully on screen (matters on narrow phones).
   for (const el of seats.children) {
     const r = el.getBoundingClientRect(), edge = 4;
@@ -1059,7 +1182,9 @@ function seatEl(i) {
 function renderHand(myTurn) {
   const g = game, me = g.players[0];
   $('me').className = 'me' + (myTurn ? ' turn' : '');
-  if (!$('myAvatar').childElementCount) $('myAvatar').replaceWith(Object.assign(avatarEl(0, 'me'), { id: 'myAvatar' }));
+  const myAv = avatarEl(0, 'me');
+  if ($('myAvatar') !== myAv) { $('myAvatar').replaceWith(myAv); myAv.id = 'myAvatar'; }
+  document.querySelector('#meChip .name').textContent = playerName(settings, 0);
 
   // Deciding whether to lay another card of the value just laid: only those cards can be played.
   const extraRank = g.round === 1 && g.r1 && g.r1.extra ? g.r1.extra.rank : null;
@@ -1174,7 +1299,7 @@ function renderPanels() {
     const row = document.createElement('div');
     row.className = 'row' + (idx === 0 && r.n > 0 && g.round === 1 ? ' top' : '');
     row.appendChild(avatarEl(r.i, 'score'));
-    row.insertAdjacentHTML('beforeend', `<span class="nm">${nameOf(r.i)}</span><span class="num">${r.out ? '✓' : r.n}</span>`);
+    row.insertAdjacentHTML('beforeend', `<span class="nm">${r.i === 0 ? playerName(settings, 0) : nameOf(r.i)}</span><span class="num">${r.out ? '✓' : r.n}</span>`);
     scores.appendChild(row);
   });
 }
@@ -1208,7 +1333,7 @@ function showGameOver() {
     row.className = 'result' + (loser ? ' loser' : '');
     row.appendChild(avatarEl(p, 'result'));
     const body = document.createElement('div');
-    body.innerHTML = `<div class="head">${nameOf(p)} <span class="tag ${loser ? 'lose' : 'safe'}">${loser ? 'Loser' : ordinal(i + 1) + ' out'}</span>${g.players[p].blue ? ' <span class="tag blue">Blå</span>' : ''}</div>`;
+    body.innerHTML = `<div class="head">${p === 0 ? playerName(settings, 0) : nameOf(p)} <span class="tag ${loser ? 'lose' : 'safe'}">${loser ? 'Loser' : ordinal(i + 1) + ' out'}</span>${g.players[p].blue ? ' <span class="tag blue">Blå</span>' : ''}</div>`;
     if (loser && g.players[p].hand.length) {
       body.insertAdjacentHTML('beforeend', `<div class="lbl">Left holding ${g.players[p].hand.length} card${g.players[p].hand.length === 1 ? '' : 's'}</div>`);
       body.appendChild(miniCards(g.players[p].hand));
@@ -1236,7 +1361,10 @@ $('settingsChip').onclick = openSetup;
 $('again').onclick = newGame;
 $('changeSetup').onclick = openSetup;
 $('startGame').onclick = () => {
+  $('nameList').querySelectorAll('input').forEach(inp => { draft.names[+inp.dataset.p] = inp.value.trim(); });
   settings = { ...draft };
+  document.body.dataset.table = settings.table;
+  avatarCache.clear(); // new pictures
   try { localStorage.setItem('mattis-settings', JSON.stringify(settings)); } catch {}
   $('setup').hidden = true;
   newGame();

@@ -27,13 +27,17 @@
 
   const DIFFICULTIES = ['easy', 'normal', 'hard'];
 
-  function createGame(numPlayers, rng = Math.random, difficulty = 'normal') {
+  // names: optional custom names for the computer players (index 1+); the human is always 'You' in the log.
+  function createGame(numPlayers, rng = Math.random, difficulty = 'normal', names = null) {
     const n = Math.max(2, Math.min(8, numPlayers | 0));
     const deck = [];
     for (const suit of SUITS) for (let rank = 2; rank <= 14; rank++) deck.push({ id: rankName(rank) + suit, suit, rank });
     shuffle(deck, rng);
     const players = [];
-    for (let i = 0; i < n; i++) players.push({ name: NAMES[i], human: i === 0, hand: [], pile: [], out: false });
+    for (let i = 0; i < n; i++) {
+      const custom = i > 0 && names && String(names[i] || '').trim().slice(0, 14);
+      players.push({ name: custom || NAMES[i], human: i === 0, hand: [], pile: [], out: false });
+    }
     for (let k = 0; k < 3; k++) for (const pl of players) pl.hand.push(deck.pop());
     const g = {
       n, rng, players, deck,
@@ -596,7 +600,7 @@
   }
 
   const _ai = { aiEvalR2, R2_STYLE }; // for tests/ai_tournament.js
-  const api = { _ai, createGame, DIFFICULTIES, firstLay, forcedMove, r1Play, r1Extra, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
+  const api = { _ai, NAMES, createGame, DIFFICULTIES, firstLay, forcedMove, r1Play, r1Extra, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Mattis = api;
 })(typeof window !== 'undefined' ? window : globalThis);
