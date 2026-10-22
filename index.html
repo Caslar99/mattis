@@ -66,6 +66,13 @@
     background-position: calc(100% - 20px) 20px, calc(100% - 15px) 20px; background-size: 5px 5px; background-repeat: no-repeat; }
   .select option { color: #000; }
   .btn:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+  #settingsChip .chip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  #settingsChip .chev { flex: none; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+    transform: translateY(-2px) rotate(45deg); opacity: .8; margin-left: 2px; }
+  .spin { display: inline-block; width: 1em; height: 1em; border-radius: 50%; border: 2.5px solid rgba(45,31,0,.25);
+    border-top-color: rgba(45,31,0,.75); animation: spin 0.9s linear infinite; margin-right: 10px; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .panel h3 .ico { width: 1.05em; height: 1.05em; flex: none; }
   .btn:disabled { opacity: .45; cursor: default; }
   .btn.gold { background: linear-gradient(180deg, var(--gold-2), var(--gold)); color: var(--gold-ink); border: 0; font-weight: 600; box-shadow: 0 6px 18px rgba(242,184,75,.25); }
   .btn.gold:hover:not(:disabled) { filter: brightness(1.06); }
@@ -332,22 +339,25 @@
   }
   /* ---------- Phones (portrait): one locked screen, oval table like the desktop ---------- */
   @media (max-width: 640px) {
-    :root { --hand-w: 64px; --mid-w: 50px; --fan-w: 19px; }
+    :root { --hand-w: 68px; --mid-w: 54px; --fan-w: 22px; }
     html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
     body { position: fixed; inset: 0; display: flex; flex-direction: column; touch-action: manipulation;
       -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-    .topbar { padding: 7px 10px; gap: 6px; flex-wrap: nowrap; flex: none; }
-    .brand { font-size: 1.3rem; gap: 6px; }
-    .brand .logo { width: 28px; height: 28px; }
-    .controls { gap: 5px; flex-wrap: nowrap; min-width: 0; }
-    .select, .btn { height: 34px; padding: 0 9px; font-size: .78rem; border-radius: 9px; }
-    #settingsChip { max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 34px; }
-    .stage { flex: 1; min-height: 0; padding: 6px 10px 8px; gap: 6px; display: flex; flex-direction: column; }
-    .status { flex: none; padding: 5px 10px; gap: 1px 10px; border-radius: 10px; }
-    .status .round { font-size: .98rem; }
-    .status .trump { font-size: .8rem; }
-    .status .msg { font-size: .76rem; flex-basis: 100%; text-align: center; line-height: 1.25; }
+    .topbar { padding: 8px 10px; gap: 6px; flex-wrap: nowrap; flex: none; }
+    .brand { font-size: 1.28rem; gap: 6px; flex: none; }
+    .brand .logo { width: 32px; height: 32px; }
+    .controls { gap: 5px; flex-wrap: nowrap; min-width: 0; flex: 1 1 auto; justify-content: flex-end; }
+    .select, .btn { height: 36px; padding: 0 10px; font-size: .78rem; border-radius: 11px; white-space: nowrap; gap: 6px; }
+    #settingsChip { min-width: 0; flex: 0 1 auto; padding: 0 9px; font-size: .7rem; gap: 7px; }
+    .controls .btn.gold { flex: none; padding: 0 10px; font-size: .74rem; }
+    #rulesBtn { width: 36px; padding: 0; justify-content: center; flex: none; }
+    #rulesBtn .lbl { display: none; }
+    .stage { flex: 1; min-height: 0; padding: 6px 12px 8px; gap: 8px; display: flex; flex-direction: column; }
+    .status { flex: none; padding: 8px 12px; gap: 2px 10px; border-radius: 13px; }
+    .status .round { font-size: 1.08rem; }
+    .status .trump { font-size: .86rem; }
+    .status .msg { font-size: .82rem; flex-basis: 100%; text-align: center; line-height: 1.3; }
 
     /* The table takes whatever height is left */
     .tablebox { flex: 1; min-height: 170px; position: relative; display: block; padding: 0; margin: 0 -14px; container-type: size; }
@@ -356,29 +366,32 @@
     .felt::after { display: block; inset: 26% 24%; }
     .seats { position: absolute; inset: 0; display: block; }
     .seat { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); gap: 4px; }
-    .seat .chip { width: auto; padding: 3px 9px 3px 3px; gap: 6px; border-radius: 11px; }
+    .seat .chip { width: auto; padding: 4px 12px 4px 4px; gap: 8px; border-radius: 14px; }
     .seat .fan { display: flex; }
-    .avatar { width: 28px; height: 28px; border-width: 1.5px; }
+    .avatar { width: 32px; height: 32px; border-width: 1.5px; }
     .chip .who { align-items: flex-start; }
-    .chip .name { font-size: .86rem; gap: 5px; }
-    .chip .meta { font-size: .64rem; }
-    .tag { font-size: .52rem; padding: 1px 5px; }
+    .chip .name { font-size: .98rem; gap: 6px; }
+    .chip .meta { font-size: .72rem; }
+    .tag { font-size: .56rem; padding: 2px 6px; }
     .seats.many .seat .chip { padding-right: 6px; }
     .seats.many .avatar { width: 24px; height: 24px; }
     .seats.many .chip .name { font-size: .74rem; }
     .seats.many .chip .meta { font-size: .58rem; }
     .seats.many .seat .fan { display: none; }
     .seats.many .tag { font-size: 0; width: 8px; height: 8px; padding: 0; border-radius: 50%; } /* tags as coloured dots */
-    .center { position: absolute; left: 50%; top: 42%; transform: translateX(-50%); gap: 12px; max-width: 46%; z-index: 1; }
+    .center { position: absolute; left: 50%; top: 40%; transform: translateX(-50%); gap: 12px; max-width: 46%; z-index: 1; }
     .divider { margin: 4px 0 26px; }
-    .chance { height: 26px; padding: 0 9px; font-size: .68rem; bottom: -12px; }
-    .deck .count { margin-top: 12px; font-size: .68rem; }
-    .deck .count small { font-size: .62rem; }
+    .chance { height: 28px; padding: 0 11px; font-size: .74rem; bottom: -13px; }
+    .deck .count { margin-top: 14px; font-size: .8rem; }
+    .deck .count small { font-size: .7rem; }
     .stackpile { margin-bottom: 18px; }
-    .trick .caption { font-size: .66rem; max-width: 120px; }
+    .trick .caption { font-size: .74rem; max-width: 130px; }
     .banner { font-size: 1.2rem; padding: 10px 18px; max-width: 92%; white-space: normal; }
     .banner small { font-size: .72rem; max-width: 280px; }
-    @container (max-height: 290px) {
+    @container (max-height: 280px) {
+      .deck .count { display: none; }
+    }
+    @container (max-height: 250px) {
       .seat .fan { display: none; }
       .center { --mid-w: 40px; top: 44%; }
       .deck .count { display: none; }
@@ -387,35 +400,41 @@
 
     /* You: chip on the table's edge, then hand and buttons */
     .me { flex: none; gap: 5px; }
-    .me .chip { margin-top: -26px; position: relative; z-index: 3; padding: 3px 14px 3px 3px; }
-    .me .chip .avatar { width: 30px; height: 30px; }
-    .me .chip .name { font-size: .95rem; }
+    .me .chip { margin-top: -28px; position: relative; z-index: 3; padding: 4px 18px 4px 4px; border-radius: 16px; }
+    .me .chip .avatar { width: 34px; height: 34px; }
+    .me .chip .name { font-size: 1.05rem; }
     .hand { padding-top: 6px; min-height: calc(var(--hand-w) * 1.45 + 6px); }
-    .handcount { font-size: .66rem; min-height: 1em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .handcount { font-size: .74rem; min-height: 1em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .actions { gap: 6px; width: 100%; }
     .actions .row { flex-wrap: nowrap; width: 100%; justify-content: center; gap: 8px; }
-    .play-btn { min-width: 0; flex: 1 1 auto; max-width: 300px; height: 42px; font-size: 1rem; }
-    #pickup, #keepBtn { height: 42px; font-size: .78rem; flex: none; }
+    .play-btn { min-width: 0; flex: 1 1 auto; max-width: 330px; height: 46px; font-size: 1.1rem; border-radius: 13px; }
+    #pickup, #keepBtn { height: 46px; font-size: .82rem; flex: none; border-radius: 13px; }
 
     /* Panels side by side at the bottom; only their own content scrolls */
-    .side { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; height: clamp(92px, 17dvh, 150px); }
-    .panel { padding: 8px 10px; border-radius: 11px; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
-    .panel h3 { font-size: .86rem; margin: 0 0 4px; gap: 6px; flex: none; }
+    .side { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; height: clamp(112px, 19dvh, 175px); }
+    .panel { padding: 10px 12px; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+    .panel h3 { font-size: 1.02rem; margin: 0 0 6px; gap: 7px; flex: none; }
     .moves ol, #scores { overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
-    .moves li { font-size: .68rem; gap: 6px; padding: 3px 0; grid-template-columns: 8px 1fr auto; }
-    .moves li .dot { width: 6px; height: 6px; }
-    .moves li .time { font-size: .6rem; }
-    .scores .row { padding: 1px 4px; gap: 8px; }
-    .scores .row + .row { border-top: 0; }
-    .scores .row .avatar { width: 19px; height: 19px; border-width: 1px; }
-    .scores .row .nm { font-size: .72rem; }
-    .scores .row .num { font-size: .86rem; }
+    .moves li { font-size: .8rem; gap: 8px; padding: 5px 0; grid-template-columns: 9px 1fr auto; border-top: 1px solid var(--panel-line); }
+    .moves li .dot { width: 8px; height: 8px; }
+    .moves li .time { font-size: .7rem; }
+    .scores .row { padding: 3px 2px; gap: 9px; border-radius: 0; }
+    .scores .row.top { background: none; border: 0; }
+    .scores .row .avatar { width: 24px; height: 24px; border-width: 1px; }
+    .scores .row .nm { font-size: .88rem; }
+    .scores .row .num { font-size: 1rem; }
   }
   @media (max-width: 640px) and (max-height: 700px) {
-    :root { --hand-w: 56px; }
-    .status .msg { font-size: .72rem; }
-    .side { height: clamp(84px, 15dvh, 120px); }
-    .play-btn, #pickup, #keepBtn { height: 38px; }
+    :root { --hand-w: 58px; --mid-w: 48px; --fan-w: 19px; }
+    .brand .logo { width: 30px; height: 30px; }
+    .status { padding: 6px 10px; }
+    .status .msg { font-size: .76rem; }
+    .side { height: clamp(90px, 15dvh, 125px); }
+    .moves li { font-size: .72rem; padding: 3px 0; }
+    .scores .row { padding: 1px 2px; }
+    .scores .row .avatar { width: 20px; height: 20px; }
+    .scores .row .nm { font-size: .78rem; }
+    .play-btn, #pickup, #keepBtn { height: 40px; }
     .handcount { display: none; }
   }
   @media (max-width: 400px) {
@@ -480,7 +499,7 @@
   </div>
 
   <div class="side">
-    <aside class="panel moves"><h3>Recent moves</h3><ol id="moves"></ol></aside>
+    <aside class="panel moves"><h3><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Recent moves</h3><ol id="moves"></ol></aside>
     <aside class="panel scores"><h3 id="scoresTitle"></h3><div id="scores"></div></aside>
   </div>
 </div>
@@ -541,7 +560,7 @@
     <div class="field">
       <span class="flabel">Speed</span>
       <div class="seg wide" id="speedSeg">
-        <button data-s="slow">Relaxed</button><button data-s="normal">Normal</button><button data-s="fast">Fast</button>
+        <button data-s="slow">Relaxed</button><button data-s="normal">Regular</button><button data-s="fast">Fast</button>
       </div>
       <small>How long the computer players think, and how fast cards move.</small>
     </div>
@@ -949,7 +968,7 @@ function statusMessage() {
         : `Battle with ${others}! Lay a card, and the highest takes it all.`;
     }
     if (!best) return 'You start: lay a card. When everyone has laid, the highest card takes the stack.';
-    return `Highest so far: ${M.label(best.card)} (${nameOf(best.by)}). Beat it to take the stack, lay lower to avoid it, or match any card's value to start a battle.`;
+    return `Highest so far: ${M.label(best.card)} (${nameOf(best.by)}). Beat it to take the stack, go lower to avoid it, or match a value to battle.`;
   }
   if (!g.stack.length) return 'Your lead: play any card.';
   const top = g.stack[g.stack.length - 1].card;
@@ -968,6 +987,8 @@ function bestPlay() {
 function seatAngles(k) {
   if (isPhone()) {
     if (k === 1) return [270];
+    if (k === 2) return [200, 340]; // high up on the left and right sides
+    if (k === 3) return [195, 270, 345];
     const many = k >= 5, span = k <= 3 ? 180 : many ? 230 : 210, start = 180 - (span - 180) / 2;
     return Array.from({ length: k }, (_, i) => start + span * i / (k - 1));
   }
@@ -1007,22 +1028,20 @@ function seatPositions(k) {
   // Opponents sit clockwise from your left, over the top, to your right.
   if (isPhone()) {
     if (k === 1) return [[50, 13]];
-    // More opponents: a wider arc that dips below the sides, so the chips don't crowd at the top.
-    const many = k >= 5, span = k <= 3 ? 180 : many ? 230 : 210, start = 180 - (span - 180) / 2;
-    return Array.from({ length: k }, (_, i) => {
-      const a = (start + span * i / (k - 1)) * Math.PI / 180;
-      return many ? [50 + 38 * Math.cos(a), 45 + 33 * Math.sin(a)] : [50 + 34 * Math.cos(a), 43 + 30 * Math.sin(a)];
-    });
+    const [rx, cy, ry] = k >= 5 ? [38, 45, 33] : [34, 42, 30]; // more opponents: a wider arc that dips below the sides
+    return seatAngles(k).map(d => [50 + rx * Math.cos(d * Math.PI / 180), cy + ry * Math.sin(d * Math.PI / 180)]);
   }
   if (k === 1) return [[50, 14]];
-  return Array.from({ length: k }, (_, i) => {
-    const a = Math.PI * (1 + i / (k - 1));
-    return [50 + 41 * Math.cos(a), 50 + 38 * Math.sin(a)];
-  });
+  return seatAngles(k).map(d => [50 + 41 * Math.cos(d * Math.PI / 180), 50 + 38 * Math.sin(d * Math.PI / 180)]);
 }
 
+const SPEED_NAMES = { slow: 'Relaxed', normal: 'Regular', fast: 'Fast' };
 function updateChip() {
-  $('settingsChip').textContent = (isPhone() ? `${settings.players}p · ` : `${settings.players} players · `) + DIFF_NAMES[game.difficulty] + (settings.speed !== 'normal' ? ` · ${settings.speed === 'fast' ? 'Fast' : 'Relaxed'}` : '');
+  const speed = SPEED_NAMES[settings.speed] || 'Regular';
+  const narrow = window.innerWidth < 410; // most phones: leave out the default speed so it fits
+  const text = (isPhone() ? `${settings.players}p` : `${settings.players} players`) + ` · ${DIFF_NAMES[game.difficulty]}` + (narrow && speed === 'Regular' ? '' : ` · ${speed}`);
+  $('settingsChip').innerHTML = `<span class="chip-text"></span><span class="chev" aria-hidden="true"></span>`;
+  $('settingsChip').querySelector('.chip-text').textContent = text;
 }
 
 function render() {
@@ -1263,8 +1282,8 @@ function renderHand(myTurn) {
 
   const btn = $('playBtn');
   if (g.over) { btn.textContent = 'Game over'; btn.disabled = true; }
-  else if (busy) { btn.textContent = '…'; btn.disabled = true; }
-  else if (!myTurn) { btn.textContent = `Waiting for ${nameOf(g.turn)}…`; btn.disabled = true; }
+  else if (busy) { btn.innerHTML = '<span class="spin" aria-hidden="true"></span>'; btn.disabled = true; }
+  else if (!myTurn) { btn.innerHTML = `<span class="spin" aria-hidden="true"></span>`; btn.append(`Waiting for ${nameOf(g.turn)}…`); btn.disabled = true; }
   else if (selCards.length && extraRank) { btn.textContent = `♠ Lay ${selCards.map(M.label).join(' ')} too`; btn.disabled = false; }
   else if (selCards.length > 1) { btn.textContent = `♠ Play ${g.round === 2 ? 'run ' : ''}${selCards.map(M.label).join(' ')}`; btn.disabled = false; }
   else if (selCards.length) { btn.textContent = `♠ Play ${M.label(selCards[0])}`; btn.disabled = false; }
