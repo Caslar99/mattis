@@ -4,6 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Mattis</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b100d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mattis">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
@@ -35,7 +45,7 @@
     position: relative; z-index: 5;
   }
   .brand { display: flex; align-items: center; gap: 12px; font-family: var(--serif); font-size: 2.1rem; font-weight: 700; letter-spacing: .01em; }
-  .brand .spade { font-size: 2.2rem; line-height: 1; }
+  .brand .logo { width: 42px; height: 42px; display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,.4)); }
   .controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .controls label { color: var(--text); font-weight: 500; }
   .select, .btn {
@@ -274,7 +284,7 @@
     :root { --hand-w: 76px; --mid-w: 64px; --fan-w: 26px; }
     .topbar { padding: 10px 16px; }
     .brand { font-size: 1.6rem; }
-    .brand .spade { font-size: 1.6rem; }
+    .brand .logo { width: 34px; height: 34px; }
     .select, .btn { height: 40px; padding: 0 14px; }
     .select { padding-right: 34px; background-position: calc(100% - 18px) 17px, calc(100% - 13px) 17px; }
     .status { padding: 8px 14px; }
@@ -300,7 +310,7 @@
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
     .topbar { padding: 7px 10px; gap: 6px; flex-wrap: nowrap; flex: none; }
     .brand { font-size: 1.3rem; gap: 6px; }
-    .brand .spade { font-size: 1.3rem; }
+    .brand .logo { width: 28px; height: 28px; }
     .controls { gap: 5px; flex-wrap: nowrap; min-width: 0; }
     .select, .btn { height: 34px; padding: 0 9px; font-size: .78rem; border-radius: 9px; }
     #settingsChip { max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 34px; }
@@ -390,7 +400,7 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><span class="spade">♠</span> Mattis</div>
+  <div class="brand"><img class="logo" src="icons/icon-192.png" alt=""> Mattis</div>
   <div class="controls">
     <button class="btn" id="settingsChip" title="Change players and difficulty"></button>
     <button class="btn gold" id="newGame">▶ New game</button>
@@ -588,7 +598,7 @@ document.querySelectorAll('#speedSeg button').forEach(b => { b.onclick = () => {
 function newGame() {
   clearTimeout(timer);
   game = M.createGame(settings.players, Math.random, settings.difficulty);
-  $('settingsChip').textContent = (isPhone() ? `${settings.players}p · ` : `${settings.players} players · `) + DIFF_NAMES[game.difficulty] + (settings.speed !== 'normal' ? ` · ${settings.speed === 'fast' ? 'Fast' : 'Relaxed'}` : '');
+  updateChip();
   sel = []; busy = false; holdStack = null; stackOpen = false;
   document.querySelectorAll('.flycard').forEach(el => el.remove()); // drop animations from the old game
   $('banner').classList.remove('show');
@@ -889,9 +899,14 @@ function seatPositions(k) {
   });
 }
 
+function updateChip() {
+  $('settingsChip').textContent = (isPhone() ? `${settings.players}p · ` : `${settings.players} players · `) + DIFF_NAMES[game.difficulty] + (settings.speed !== 'normal' ? ` · ${settings.speed === 'fast' ? 'Fast' : 'Relaxed'}` : '');
+}
+
 function render() {
   const g = game, myTurn = !g.over && !busy && g.turn === 0 && !M.forcedMove(g);
 
+  updateChip();
   $('round').innerHTML = g.over ? 'Game over' : g.round === 1 ? 'Round 1 <span>· Collecting</span>' : 'Round 2 <span>· Shed your cards</span>';
   $('trump').innerHTML = g.trumpSuit
     ? `<span class="diamond">◆</span> Trumf: <span class="suit${M.isRed(g.trumpCard) ? ' red' : ''}">${g.trumpSuit}</span>`
