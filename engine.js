@@ -275,7 +275,6 @@
     return null;
   }
 
-
   // ---------- Round 2: get rid of your cards ----------
 
   function beats(card, top, trumpSuit) {
@@ -387,7 +386,7 @@
     const forced = forcedMove(g);
     if (forced) return forced;
     if (g.difficulty === 'easy') return aiEasy(g);
-    if (g.difficulty === 'hard') return g.round === 1 ? aiHardR1(g) : aiHardR2(g);
+    if (g.difficulty === 'hard') return g.round === 1 ? aiHardR1(g) : aiEvalR2(g, R2_STYLE.hard);
     return aiNormal(g);
   }
 
@@ -401,7 +400,7 @@
       const same = card ? pl.hand.filter(c => c.rank === card.rank) : [];
       return same.length > 1 && card.rank <= 8 ? same.map(c => c.id) : move;
     }
-    return aiR2(g, p);
+    return aiEvalR2(g, R2_STYLE.normal);
   }
 
   function aiR1(g, p) {
@@ -436,27 +435,6 @@
     if (lowest.rank < best) return lowest.id;
     if (gamble && rng() < 0.5) return 'gamble';
     return lowest.id;
-  }
-
-  function aiR2(g, p) {
-    const pl = g.players[p], rng = g.rng;
-    const isTrump = c => c.suit === g.trumpSuit;
-    const legal = legalCards(g, p).sort((a, b) => isTrump(a) - isTrump(b) || a.rank - b.rank);
-    if (!legal.length) return 'pickup';
-    // Usually lead the lowest card, but not always: always-lowest leads can pass the same
-    // unbeatable cards around forever.
-    if (!g.stack.length && rng() < 0.3) return legal[Math.floor(rng() * legal.length)].id;
-    // (a random lead stays a single card)
-    const c = legal[0];
-    const run = [c];
-    // Shed more cards with a run when possible (save trump runs for the end game).
-    if (!isTrump(c) || pl.hand.length <= 5) {
-      for (let next; (next = pl.hand.find(h => h.suit === c.suit && h.rank === run[run.length - 1].rank + 1));) run.push(next);
-    }
-    if (g.stack.length && isTrump(c) && !isTrump(g.stack[g.stack.length - 1].card) && c.rank >= 12 && pl.hand.length > 5 && rng() < 0.5) {
-      return 'pickup'; // don't burn a big trump early on a cheap card
-    }
-    return run.length > 1 ? run.map(x => x.id) : c.id;
   }
 
   // ----- Easy: plays sensibly only part of the time; otherwise random, sometimes picks up for no reason -----
@@ -522,9 +500,19 @@
     return (hand.find(c => !pairs(c)) || lowest).id;
   }
 
-  function aiHardR2(g) {
+  // ----- Round 2: weigh every option (risk vs reward) -----
+  // trumf: how precious a trumf is to keep · high: a non-trumf Q/K/A · shed: value of getting rid of a card
+  // pick: cost per card picked up · clear: bonus when our lay makes the stack go out ("bort stikk": we lead next)
+  // runFit: bonus per picked-up card that fits next to a card of ours in the same suit (builds a serie)
+  // urgency: how strongly the end of the game makes us spend trumf and avoid picking up · noise: randomness
+  const R2_STYLE = {
+    normal: { trumf: 2.2, high: 0.4, shed: 1, pick: 1.2, clear: 0.6, runFit: 0.3, urgency: 0.6, noise: 0.8 },
+    hard: { trumf: 3.2, high: 0.7, shed: 1, pick: 1.3, clear: 1.6, runFit: 0.9, urgency: 1, noise: 0.1, count: 1 },
+  };
+
+  function aiEvalR2(g, style) {
     const p = g.turn, hand = g.players[p].hand, rng = g.rng;
-    const isTrump = c => c.suit === g.trumpSuit;
+    const isTrumf = c => c.suit === g.trumpSuit;
     const asc = (a, b) => a.rank - b.rank;
     const runFrom = c => {
       const run = [c];
@@ -532,30 +520,73 @@
       return run;
     };
     const ids = cards => (cards.length > 1 ? cards.map(c => c.id) : cards[0].id);
+
+    // The end is near when only two of a bigger table are left, an opponent is about to go out, or we nearly are.
+    const opponents = g.players.filter((pl, i) => i !== p && !pl.out && pl.hand.length);
+    const fewest = opponents.length ? Math.min(...opponents.map(pl => pl.hand.length)) : 99;
+    const near = Math.max(activeCount(g) <= 2 && g.n > 2 ? 1 : 0, fewest <= 2 ? 0.8 : fewest <= 4 ? 0.4 : 0, hand.length <= 3 ? 0.7 : 0);
+    const urgency = Math.min(1, style.urgency * near);
+    // What a card is worth to keep: trumf are precious until the end; high cards a little.
+    const keep = c => (isTrumf(c) ? style.trumf * (1 - 0.85 * urgency) + (c.rank - 2) / 12 : c.rank >= 12 ? style.high * (1 - urgency) : 0);
+
     if (!g.stack.length) {
-      // A little randomness keeps unbeatable leads from cycling forever.
+      // (A little randomness keeps unbeatable leads from cycling forever.)
       if (rng() < 0.2) return hand[Math.floor(rng() * hand.length)].id;
-      const plain = hand.filter(c => !isTrump(c));
+      const plain = hand.filter(c => !isTrumf(c));
       const pool = plain.length ? plain : hand;
+      if (style.count) {
+        // Card counting: prefer leads that nobody else can beat in that suit (they must spend a trumf or
+        // pick up). Unseen = not in our hand and not out of play.
+        const gone = new Set(g.discard.concat(hand).map(c => c.id));
+        const higherUnseen = c => {
+          let n = 0;
+          for (let r = c.rank + 1; r <= 14; r++) if (!gone.has(rankName(r) + c.suit)) n++;
+          return n;
+        };
+        let best = null;
+        for (const c of pool) {
+          for (const cards of runFrom(c).length > 1 ? [[c], runFrom(c)] : [[c]]) {
+            const top = cards[cards.length - 1];
+            const score = style.shed * cards.length - cards.reduce((sum, x) => sum + keep(x), 0) +
+              style.count / (1 + higherUnseen(top)) - 0.04 * top.rank;
+            if (!best || score > best.score) best = { cards, score };
+          }
+        }
+        return ids(best.cards);
+      }
+      // Otherwise: a non-trumf serie if we have one, else the lowest card of our longest non-trumf suit.
       let best = null;
       for (const c of pool) {
         const run = runFrom(c);
         if (!best || run.length > best.length || (run.length === best.length && c.rank < best[0].rank)) best = run;
       }
       if (best.length > 1) return ids(best);
-      const count = s => hand.filter(c => c.suit === s).length;
+      const count = suit => hand.filter(c => c.suit === suit).length;
       return pool.slice().sort((a, b) => count(b.suit) - count(a.suit) || asc(a, b))[0].id;
     }
-    const legal = legalCards(g, p).sort(asc);
-    if (!legal.length) return 'pickup';
-    const top = g.stack[g.stack.length - 1].card;
-    const sameSuit = legal.filter(c => c.suit === top.suit);
-    if (sameSuit.length) {
-      const c = sameSuit[0];
-      return !isTrump(c) || hand.length <= 5 ? ids(runFrom(c)) : c.id;
+
+    const options = [];
+    const clears = laysOnStack(g) + 1 >= activeCount(g); // our lay would make the stack go out
+    for (const c of legalCards(g, p).sort(asc)) {
+      const plays = [[c]];
+      const run = runFrom(c);
+      if (run.length > 1) plays.push(run);
+      for (const cards of plays) {
+        let score = style.shed * cards.length - cards.reduce((sum, x) => sum + keep(x), 0);
+        if (clears) score += style.clear;
+        if (cards.length === hand.length) score += 100; // that's us out
+        options.push({ move: ids(cards), score });
+      }
     }
-    // Only a trump beats it: always worth it. A trump sheds a card; picking up only adds cards.
-    return legal[0].id;
+    const taken = firstLay(g).map(e => e.card);
+    let pick = -style.pick * taken.length - urgency * 1.5 * taken.length;
+    for (const t of taken) {
+      pick += 0.6 * keep(t); // picking up a trumf (or a high card) is partly a gain
+      pick += style.runFit * hand.filter(h => h.suit === t.suit && Math.abs(h.rank - t.rank) === 1).length; // builds a serie
+    }
+    options.push({ move: 'pickup', score: pick });
+    for (const o of options) o.score += (rng() - 0.5) * style.noise;
+    return options.reduce((a, b) => (b.score > a.score ? b : a)).move;
   }
 
   function act(g, move) {
@@ -564,7 +595,8 @@
     return r2Play(g, g.turn, move);
   }
 
-  const api = { createGame, DIFFICULTIES, firstLay, forcedMove, r1Play, r1Extra, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
+  const _ai = { aiEvalR2, R2_STYLE }; // for tests/ai_tournament.js
+  const api = { _ai, createGame, DIFFICULTIES, firstLay, forcedMove, r1Play, r1Extra, r2Play, r2PickUp, legalCards, checkPlay, isRun, canGamble, beats, aiMove, act, label, rankName, isRed, SUITS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Mattis = api;
 })(typeof window !== 'undefined' ? window : globalThis);
