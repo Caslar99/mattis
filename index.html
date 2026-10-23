@@ -620,7 +620,9 @@ let holdStack = null;    // a just-taken/cleared stack, kept on the table until 
 let handOrder = [];      // your round-1 hand order, so a drawn card slots into the gap it fills
 let stackOpen = false;   // fanned-out stack on touch screens
 let dealView = null;     // round-2 hands as dealt, shown during the blå hand-over animation
-let preselectedFor = null; // the 'lay it too' offer whose cards were pre-selected (only done once)
+let preselectedFor = null;
+const handEls = new Map(); // card id → its element in your hand, reused between updates
+let handCtx = null;        // what the current hand allows (set by renderHand, used by the click handlers) // the 'lay it too' offer whose cards were pre-selected (only done once)
 
 const SUIT_FILE = { '♠': 'spade', '♥': 'heart', '♦': 'diamond', '♣': 'club' };
 const RANK_FILE = { 11: 'jack', 12: 'queen', 13: 'king', 14: '1' };
@@ -637,8 +639,8 @@ const standalone = navigator.standalone === true || matchMedia('(display-mode: s
 // The height the page really has. Opened from the home screen, iPhones can report a viewport shorter than
 // the screen (leaving a white band at the bottom), so there the full screen height is used.
 function setAppHeight() {
-  const h = standalone && isPhone() ? Math.max(window.innerHeight, screen.height) : window.innerHeight;
-  document.documentElement.style.setProperty('--app-h', h + 'px');
+  const h = (standalone && isPhone() ? Math.max(window.innerHeight, screen.height) : window.innerHeight) + 'px';
+  if (document.documentElement.style.getPropertyValue('--app-h') !== h) document.documentElement.style.setProperty('--app-h', h);
 }
 setAppHeight();
 
@@ -725,6 +727,7 @@ function newGame() {
   $('banner').classList.remove('show');
   hidden = new Set();
   dealView = null;
+  handEls.forEach(el => el.remove()); handEls.clear();
   handOrder = game.players[0].hand.slice().sort((a, b) => a.rank - b.rank).map(c => c.id);
   $('over').hidden = true;
   render();
@@ -1323,37 +1326,23 @@ function renderHand(myTurn) {
     sorted = (dealView ? dealView[0] : me.hand).slice().sort((a, b) => (a.suit === g.trumpSuit) - (b.suit === g.trumpSuit) || order.indexOf(a.suit) - order.indexOf(b.suit) || a.rank - b.rank);
   }
   const hand = $('hand');
-  hand.innerHTML = '';
   const cw = cssPx('--hand-w');
   const avail = hand.clientWidth || 600;
   const gapPx = isPhone() ? cssPx('--hand-gap') : 12;
   const step = sorted.length > 1 ? Math.min(cw + gapPx, (avail - cw) / (sorted.length - 1)) : 0;
+  handCtx = { g, legal, extend, selCards };
+  // Reuse each card's element between updates, so the card pictures never reload (no flicker).
+  const keepIds = new Set(sorted.map(c => c.id));
+  for (const [id, el] of handEls) if (!keepIds.has(id)) { el.remove(); handEls.delete(id); }
+  for (const node of [...hand.children]) if (!node.dataset.id || !handEls.has(node.dataset.id)) node.remove();
   sorted.forEach((c, i) => {
-    const el = cardEl(c);
-    if (i) el.style.marginLeft = (step - cw) + 'px';
-    if (legal.has(c.id) || extend.has(c.id) || sel.includes(c.id)) {
-      el.classList.add('playable');
-      el.addEventListener('click', e => {
-        if (e.detail > 1) return; // second click of a double-click: handled below
-        if (g.round === 1) {
-          if (sel.includes(c.id)) sel = sel.filter(id => id !== c.id); // click a selected card again to deselect it
-          else if (extend.has(c.id)) sel.push(c.id); // same value: lay them together
-          else sel = [c.id];
-          renderHand(true);
-          return;
-        }
-        if (sel.includes(c.id)) sel = selCards.filter(x => x.rank < c.rank).map(x => x.id); // drop it (and anything above)
-        else if (extend.has(c.id)) sel.push(c.id);
-        else sel = [c.id];
-        renderHand(true);
-      });
-      // Double-click: shortcut to play the selection (the first click selected the card).
-      el.addEventListener('dblclick', () => {
-        if (sel.includes(c.id)) performMove(g.round === 2 || sel.length > 1 ? sel.slice() : c.id);
-      });
-    } else if (myTurn) el.classList.add('dim');
-    if (sel.includes(c.id)) el.classList.add('selected');
-    hand.appendChild(el);
+    let el = handEls.get(c.id);
+    if (!el) { el = cardEl(c); handEls.set(c.id, el); }
+    const playable = legal.has(c.id) || extend.has(c.id) || sel.includes(c.id);
+    el.className = 'card' + (g.trumpSuit && c.suit === g.trumpSuit ? ' trump-suit' : '') + (hidden.has(c.id) ? ' ghost' : '') +
+      (playable ? ' playable' : myTurn ? ' dim' : '') + (sel.includes(c.id) ? ' selected' : '');
+    el.style.marginLeft = i ? (step - cw) + 'px' : '';
+    if (hand.children[i] !== el) hand.insertBefore(el, hand.children[i] || null);
   });
   $('handCount').textContent = me.out ? "You're out of cards. Safe!"
     : g.round === 2 && me.blue && !me.hand.length ? '🔵 You are blå: you must pick up on your turn'
@@ -1456,6 +1445,30 @@ function miniCards(cards) {
   return wrap;
 }
 
+// Clicks on your cards (one handler for the whole hand; the elements are reused between updates).
+$('hand').addEventListener('click', e => {
+  const el = e.target.closest('.card.playable');
+  if (!el || !handCtx || e.detail > 1) return; // second click of a double-click: handled below
+  const { g, extend, selCards } = handCtx, id = el.dataset.id;
+  if (g.round === 1) {
+    if (sel.includes(id)) sel = sel.filter(x => x !== id); // click a selected card again to deselect it
+    else if (extend.has(id)) sel.push(id); // same value: lay them together
+    else sel = [id];
+  } else {
+    const card = g.players[0].hand.find(c => c.id === id);
+    if (sel.includes(id)) sel = selCards.filter(x => x.rank < card.rank).map(x => x.id); // drop it (and anything above)
+    else if (extend.has(id)) sel.push(id);
+    else sel = [id];
+  }
+  renderHand(true);
+});
+// Double-click: shortcut to play the selection (the first click selected the card).
+$('hand').addEventListener('dblclick', e => {
+  const el = e.target.closest('.card.playable');
+  if (!el || !handCtx || !sel.includes(el.dataset.id)) return;
+  performMove(handCtx.g.round === 2 || sel.length > 1 ? sel.slice() : el.dataset.id);
+});
+
 $('newGame').onclick = openSetup;
 $('settingsChip').onclick = openSetup;
 $('again').onclick = newGame;
@@ -1488,7 +1501,13 @@ document.addEventListener('click', e => {
   if (stackOpen && !$('stackpile').contains(e.target)) { stackOpen = false; $('stackpile').classList.remove('open'); }
 });
 let resizeTimer;
-window.addEventListener('resize', () => { setAppHeight(); clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+let lastSize = innerWidth + 'x' + innerHeight;
+window.addEventListener('resize', () => {
+  const size = innerWidth + 'x' + innerHeight;
+  if (size === lastSize) return; // nothing really changed (iPhones can fire resize when the page height is set)
+  lastSize = size;
+  setAppHeight(); clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150);
+});
 window.addEventListener('orientationchange', () => setTimeout(() => { setAppHeight(); render(); }, 300));
 
 // Preload card images so cards don't pop in mid-game
