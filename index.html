@@ -343,10 +343,11 @@
      proportions on any phone; on short screens --u shrinks so everything still fits. */
   @media (max-width: 640px) {
     :root {
-      --u: calc(min(100vw, 480px, var(--app-h, 100vh) * .53) / 430);
+      --usable-h: calc(var(--app-h, 100vh) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      --u: calc(min(100vw, 480px, var(--usable-h) * .53) / 430);
       --hand-w: calc(75 * var(--u)); --hand-gap: calc(12 * var(--u)); --mid-w: calc(56 * var(--u)); --fan-w: calc(28 * var(--u));
     }
-    @supports (height: 1dvh) { :root { --u: calc(min(100vw, 480px, var(--app-h, 100dvh) * .53) / 430); } }
+    @supports (height: 1dvh) { :root { --usable-h: calc(var(--app-h, 100dvh) - env(safe-area-inset-top) - env(safe-area-inset-bottom)); } }
     html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
     body { position: fixed; top: 0; left: 0; right: 0; height: var(--app-h, 100%); min-height: 0; display: flex; flex-direction: column; touch-action: manipulation;
       -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
@@ -390,10 +391,11 @@
     .seats.many .chip .name { font-size: calc(12.5 * var(--u)); }
     .seats.many .chip .meta { font-size: calc(10 * var(--u)); }
     .seats.many .seat .fan { display: none; }
+    .seats.nofans .seat .fan { visibility: hidden; } /* invisible but keeps its space, so chips stay put */
     .seats.many .tag { font-size: 0; width: calc(8 * var(--u)); height: calc(8 * var(--u)); padding: 0; border-radius: 50%; } /* tags as coloured dots */
 
     /* Deck (with a smaller card peeking out behind it), Chance card under it, stack slot to the right */
-    .center { position: absolute; left: 35%; top: 38.5%; transform: none; gap: calc(26 * var(--u)); max-width: none; z-index: 1; align-items: flex-start; }
+    .center { position: absolute; left: 35%; top: 38.5%; transform: none; gap: calc(var(--mid-w) * .46); max-width: none; z-index: 1; align-items: flex-start; }
     .divider { display: none; }
     .deck { align-items: flex-start; gap: 0; }
     .deckwrap { position: relative; }
@@ -403,10 +405,11 @@
       width: calc(97 * var(--u)); height: calc(24 * var(--u)); padding: 0; justify-content: center; font-size: calc(11.5 * var(--u)); border-radius: calc(7 * var(--u)); }
     .deck .count { margin-top: calc(32 * var(--u)); width: var(--mid-w); text-align: center; white-space: nowrap; font-size: calc(12.5 * var(--u)); line-height: 1.35; overflow: visible; display: flex; flex-direction: column; align-items: center; }
     .deck .count small { font-size: calc(11 * var(--u)); }
-    .trick { min-width: calc(69 * var(--u)); margin-top: calc(4 * var(--u)); gap: calc(10 * var(--u)); }
+    .trick { position: relative; width: calc(var(--mid-w) * 1.23); min-width: 0; margin-top: calc(4 * var(--u)); gap: 0; }
     .stackpile { margin-bottom: calc(22 * var(--u)); }
-    .stackpile .empty { width: calc(69 * var(--u)); height: calc(88 * var(--u)); border-radius: calc(7 * var(--u)); }
-    .trick .caption { font-size: calc(11 * var(--u)); max-width: calc(140 * var(--u)); }
+    .stackpile .empty { width: calc(var(--mid-w) * 1.23); height: calc(var(--mid-w) * 1.57); border-radius: calc(7 * var(--u)); }
+    /* The caption sits centred under the stack without widening the middle of the table */
+    .trick .caption { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(150 * var(--u)); font-size: calc(11 * var(--u)); }
     .banner { font-size: calc(20 * var(--u)); padding: calc(10 * var(--u)) calc(18 * var(--u)); max-width: 92%; white-space: normal; }
     .banner small { font-size: calc(12 * var(--u)); max-width: calc(300 * var(--u)); }
     @container (max-height: 260px) {
@@ -1004,7 +1007,8 @@ function seatAngles(k) {
   if (isPhone()) {
     if (k === 1) return [270];
     if (k === 2) return [190, 350]; // high up on the left and right sides
-    if (k === 3) return [195, 270, 345];
+    if (k === 3) return [190, 270, 350]; // ...plus one at the top
+    if (k === 4) return [190, 238, 302, 350]; // ...plus two at the top, clear of the deck
     const many = k >= 5, span = k <= 3 ? 180 : many ? 230 : 210, start = 180 - (span - 180) / 2;
     return Array.from({ length: k }, (_, i) => start + span * i / (k - 1));
   }
@@ -1095,6 +1099,7 @@ function render() {
 
   renderDeck(myTurn);
   renderStack();
+  if (fitCenter()) renderStack(); // card size changed: lay the stack out again
   renderHand(myTurn);
   renderPanels();
 
@@ -1128,6 +1133,60 @@ function renderDeck(myTurn) {
   chance.disabled = !(myTurn && M.canGamble(g) && !g.r1.extra);
 }
 
+// Phones: put the deck and stack in the free space between the players on the left and right, and
+// shrink them if they don't fit, so they never run into a player's chip or face-down cards.
+function fitCenter() {
+  const center = document.querySelector('.center'), seats = $('seats');
+  const before = center.style.getPropertyValue('--mid-w') + (seats.classList.contains('nofans') ? 'nf' : '') + center.style.top;
+  center.style.removeProperty('--mid-w');
+  center.style.left = '';
+  center.style.top = '';
+  seats.classList.remove('nofans');
+  if (!isPhone()) return before !== '';
+  const box = document.querySelector('.tablebox').getBoundingClientRect();
+  const union = () => {
+    const rs = [center, $('chance'), document.querySelector('.deck .count'), ...center.querySelectorAll('.stackpile .played .card')] // incl. tilted stack cards
+      .filter(el => el && !el.hidden && el.offsetParent).map(el => el.getBoundingClientRect());
+    return { left: Math.min(...rs.map(r => r.left)), right: Math.max(...rs.map(r => r.right)), top: Math.min(...rs.map(r => r.top)), bottom: Math.max(...rs.map(r => r.bottom)) };
+  };
+  const gap = 8;
+  // Free space between the players on the left and right that are level with the centre.
+  const freeSpace = c => {
+    let lo = box.left + box.width * .06, hi = box.right - box.width * .06; // stay on the felt
+    for (const seat of seats.querySelectorAll('.seat')) {
+      for (const part of seat.children) { // the chip and the face-down cards
+        const r = part.getBoundingClientRect();
+        if (!r.width || getComputedStyle(part).visibility === 'hidden') continue;
+        if (r.bottom < c.top - 2 || r.top > c.bottom + 2) continue; // not level with the centre
+        if ((r.left + r.right) / 2 < box.left + box.width / 2) lo = Math.max(lo, r.right); else hi = Math.min(hi, r.left);
+      }
+    }
+    return { lo, hi, avail: hi - lo - 2 * gap };
+  };
+  let c = union(), width = c.right - c.left, space = freeSpace(c);
+  // Cramped: hide the side players' face-down cards (their count is on the chip) before shrinking the deck.
+  if (width > space.avail * 1.15) { seats.classList.add('nofans'); space = freeSpace(c); }
+  // Still cramped: move the deck and stack down below the side players, if there's room above your chip.
+  if (width > space.avail) {
+    const blocking = [...seats.querySelectorAll('.seat .chip')].map(el => el.getBoundingClientRect())
+      .filter(r => r.bottom >= c.top - 2 && r.top <= c.bottom + 2);
+    const below = Math.max(...blocking.map(r => r.bottom)) + 4;
+    const room = $('meChip').getBoundingClientRect().top - 6;
+    if (blocking.length && below + (c.bottom - c.top) <= room) {
+      const cTop = center.getBoundingClientRect().top;
+      center.style.top = (below + (cTop - c.top) - box.top) + 'px';
+      c = union(); width = c.right - c.left; space = freeSpace(c);
+    }
+  }
+  if (width > space.avail) {
+    center.style.setProperty('--mid-w', cssPx('--mid-w') * Math.max(.6, space.avail / width) + 'px');
+    c = union(); width = c.right - c.left; space = freeSpace(c);
+  }
+  const cLeft = center.getBoundingClientRect().left;
+  center.style.left = (space.lo + gap + Math.max(0, (space.avail - width) / 2) + (cLeft - c.left) - box.left) + 'px';
+  return center.style.getPropertyValue('--mid-w') + (seats.classList.contains('nofans') ? 'nf' : '') + center.style.top !== before;
+}
+
 function renderStack() {
   const g = game, pile = $('stackpile');
   const entries = g.stack.length ? g.stack : holdStack || [];
@@ -1141,7 +1200,8 @@ function renderStack() {
       : 'Empty';
     return;
   }
-  const n = entries.length, w = cssPx('--mid-w');
+  const shrunk = document.querySelector('.center').style.getPropertyValue('--mid-w');
+  const n = entries.length, w = shrunk ? parseFloat(shrunk) : cssPx('--mid-w');
   // Fanned-out positions, kept inside the screen.
   const box = document.querySelector('.tablebox').getBoundingClientRect();
   const avail = Math.min(window.innerWidth - 32, isWide() ? box.width * 0.75 : box.width - 20);
