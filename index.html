@@ -622,7 +622,10 @@ let stackOpen = false;   // fanned-out stack on touch screens
 let dealView = null;     // round-2 hands as dealt, shown during the blå hand-over animation
 let preselectedFor = null;
 const handEls = new Map(); // card id → its element in your hand, reused between updates
-let handCtx = null;        // what the current hand allows (set by renderHand, used by the click handlers) // the 'lay it too' offer whose cards were pre-selected (only done once)
+let handCtx = null;
+// Cards already counted in a computer's hand but still flying there (drawn from the deck, or picked up):
+// shown only when they land, so hands go 3 → 2 → 3 like at a real table.
+let pendingIn = {};        // what the current hand allows (set by renderHand, used by the click handlers) // the 'lay it too' offer whose cards were pre-selected (only done once)
 
 const SUIT_FILE = { '♠': 'spade', '♥': 'heart', '♦': 'diamond', '♣': 'club' };
 const RANK_FILE = { 11: 'jack', 12: 'queen', 13: 'king', 14: '1' };
@@ -726,6 +729,7 @@ function newGame() {
   document.querySelectorAll('.flycard').forEach(el => el.remove()); // drop animations from the old game
   $('banner').classList.remove('show');
   hidden = new Set();
+  pendingIn = {};
   dealView = null;
   handEls.forEach(el => el.remove()); handEls.clear();
   handOrder = game.players[0].hand.slice().sort((a, b) => a.rank - b.rank).map(c => c.id);
@@ -821,6 +825,8 @@ async function fly({ card, from, to, flip = null, duration = 450, delay = 0, fad
 function reveal(id) {
   hidden.delete(id);
   document.querySelectorAll(`[data-id="${id}"]`).forEach(e => e.classList.remove('ghost'));
+  const me = game.players[0], n = me.hand.filter(c => !hidden.has(c.id)).length;
+  if (me.hand.some(c => c.id === id) && !me.out) $('handCount').textContent = `${n} card${n === 1 ? '' : 's'}`;
 }
 
 // Every move (yours or a computer's) goes through here so it can be animated.
@@ -858,13 +864,16 @@ async function performMove(move) {
   const round2Starts = prevRound === 1 && g.round === 2;
   if (round2Starts && g.blueMoves) dealView = g.r2Deal; // show hands as dealt until the 2-5s are handed over
 
+  pendingIn = {};
+  if (p !== 0 && !round2Starts) pendingIn[p] = picked ? picked.length : drawnIds.length; // in flight to their hand
+
   if (picked) {
     if (p === 0) picked.forEach(e => hidden.add(e.card.id));
     render();
     await Promise.all(picked.map((e, i) => {
       const to = p === 0 ? rectOf(handCard(e.card.id)) : seatRect(p);
       return fly({ card: e.card, from: pickFroms[i], to, flip: p === 0 ? null : 'down', duration: 480, delay: i * 90 })
-        .then(() => reveal(e.card.id));
+        .then(() => { reveal(e.card.id); if (p !== 0) cardsArrived(p); });
     }));
     if (game !== g) return; // a new game was started meanwhile
   } else {
@@ -886,7 +895,7 @@ async function performMove(move) {
         const mine = p === 0 && d.id && handCard(d.id);
         return mine
           ? fly({ card: game.players[0].hand.find(c => c.id === d.id), from: deckRect(), to: rectOf(mine), flip: 'up', duration: 420, delay: k * 130 }).then(() => reveal(d.id))
-          : fly({ card: null, from: deckRect(), to: seatRect(p), flip: 'back', duration: 420, delay: k * 130 });
+          : fly({ card: null, from: deckRect(), to: seatRect(p), flip: 'back', duration: 420, delay: k * 130 }).then(() => { if (d.id) cardsArrived(p); });
       }));
       if (game !== g) return; // a new game was started meanwhile
     }
@@ -902,6 +911,7 @@ async function performMove(move) {
     }
   }
   holdStack = null;
+  pendingIn = {};
   busy = false;
   render();
 }
@@ -1258,12 +1268,9 @@ function seatEl(i) {
   if (pl.out) tags += '<span class="tag safe">Safe</span>';
   if (g.over && g.loser === i) tags += '<span class="tag lose">Loser</span>';
   const hand = dealView ? dealView[i] : pl.hand;
-  const meta = g.round === 1
-    ? (isPhone() && g.n > 5 ? `🂠 ${hand.length} · 🏆 ${pl.pile.length}` : `${hand.length} cards · ${pl.pile.length} ${isPhone() ? 'won' : 'collected'}`)
-    : pl.out ? 'Out of cards' : `${hand.length} card${hand.length === 1 ? '' : 's'} left`;
   const who = document.createElement('div');
   who.className = 'who';
-  who.innerHTML = `<span class="name">${pl.name} ${tags}</span><span class="meta">${meta}</span>`;
+  who.innerHTML = `<span class="name">${pl.name} ${tags}</span><span class="meta">${seatMeta(i, seatCount(i))}</span>`;
   chip.appendChild(who);
   el.appendChild(chip);
 
@@ -1276,9 +1283,32 @@ function seatEl(i) {
     img.style.transform = `rotate(${(k - (shown - 1) / 2) * 9}deg)`;
     fan.appendChild(img);
   }
-  if (hand.length > shown) fan.insertAdjacentHTML('beforeend', `<span class="more">+${hand.length - shown}</span>`);
+  fan.insertAdjacentHTML('beforeend', `<span class="more"></span>`);
   el.appendChild(fan);
+  showSeatCount(el, seatCount(i));
   return el;
+}
+
+// Cards a computer visibly holds right now (cards still flying to them don't count yet).
+const seatCount = i => Math.max(0, (dealView ? dealView[i] : game.players[i].hand).length - (pendingIn[i] || 0));
+function seatMeta(i, n) {
+  const pl = game.players[i];
+  if (game.round === 1) return isPhone() && game.n > 5 ? `🂠 ${n} · 🏆 ${pl.pile.length}` : `${n} cards · ${pl.pile.length} ${isPhone() ? 'won' : 'collected'}`;
+  return pl.out ? 'Out of cards' : `${n} card${n === 1 ? '' : 's'} left`;
+}
+// Show n cards in a seat's fan and count, in place (no rebuild, so nothing blinks or shifts).
+function showSeatCount(seat, n) {
+  const imgs = seat.querySelectorAll('.fan img');
+  imgs.forEach((img, k) => { img.style.visibility = k < n ? '' : 'hidden'; });
+  const more = seat.querySelector('.fan .more');
+  if (more) more.textContent = n > imgs.length ? '+' + (n - imgs.length) : '';
+  const meta = seat.querySelector('.meta');
+  if (meta) meta.textContent = seatMeta(+seat.dataset.seat, n);
+}
+function cardsArrived(p, k = 1) {
+  pendingIn[p] = Math.max(0, (pendingIn[p] || 0) - k);
+  const seat = document.querySelector(`.seat[data-seat="${p}"]`);
+  if (seat) showSeatCount(seat, seatCount(p));
 }
 
 function renderHand(myTurn) {
@@ -1344,9 +1374,10 @@ function renderHand(myTurn) {
     el.style.marginLeft = i ? (step - cw) + 'px' : '';
     if (hand.children[i] !== el) hand.insertBefore(el, hand.children[i] || null);
   });
+  const handNow = (dealView ? dealView[0] : me.hand).filter(c => !hidden.has(c.id)).length; // cards flying to you don't count yet
   $('handCount').textContent = me.out ? "You're out of cards. Safe!"
     : g.round === 2 && me.blue && !me.hand.length ? '🔵 You are blå: you must pick up on your turn'
-    : `${(dealView ? dealView[0] : me.hand).length} card${me.hand.length === 1 ? '' : 's'}` + (!myTurn ? ''
+    : `${handNow} card${handNow === 1 ? '' : 's'}` + (!myTurn ? ''
       : g.round === 2 ? ' · tip: select same-suit cards in a row (5♥ 6♥ 7♥) to lay a run'
       : !extraRank && me.hand.some(c => me.hand.filter(d => d.rank === c.rank).length > 1) ? ' · tip: select cards of the same value to lay them together' : '');
 
