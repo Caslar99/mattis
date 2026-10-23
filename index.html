@@ -29,6 +29,7 @@
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
+  html { background: #120c08; } /* dark behind everything, so no white ever shows (e.g. home-screen app on iPhone) */
   body {
     min-height: 100vh; font-family: Inter, system-ui, sans-serif; color: var(--text);
     background:
@@ -44,8 +45,8 @@
   body[data-table="classic"] { --felt-1: #2f8253; --felt-2: #1d633d; --felt-3: #12452a; }
   /* Curved arrows around the table showing which way play goes */
   .arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; overflow: visible; }
-  .arrows path { fill: none; stroke: rgba(255,255,255,.3); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 2 7; }
-  .arrows .head { fill: rgba(255,255,255,.5); stroke: none; }
+  .arrows path { fill: none; stroke: rgba(255,255,255,.16); stroke-width: 2; stroke-linecap: round; }
+  .arrows .head { fill: rgba(255,255,255,.26); stroke: none; }
 
   /* ---------- Top bar ---------- */
   .topbar {
@@ -342,12 +343,12 @@
      proportions on any phone; on short screens --u shrinks so everything still fits. */
   @media (max-width: 640px) {
     :root {
-      --u: calc(min(100vw, 480px, 53vh) / 430);
+      --u: calc(min(100vw, 480px, var(--app-h, 100vh) * .53) / 430);
       --hand-w: calc(75 * var(--u)); --hand-gap: calc(12 * var(--u)); --mid-w: calc(56 * var(--u)); --fan-w: calc(28 * var(--u));
     }
-    @supports (height: 1dvh) { :root { --u: calc(min(100vw, 480px, 53dvh) / 430); } }
+    @supports (height: 1dvh) { :root { --u: calc(min(100vw, 480px, var(--app-h, 100dvh) * .53) / 430); } }
     html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
-    body { position: fixed; inset: 0; display: flex; flex-direction: column; touch-action: manipulation;
+    body { position: fixed; top: 0; left: 0; right: 0; height: var(--app-h, 100%); min-height: 0; display: flex; flex-direction: column; touch-action: manipulation;
       -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 
@@ -629,6 +630,14 @@ document.body.appendChild(sizeProbe);
 const cssPx = name => { sizeProbe.style.width = `var(${name})`; return sizeProbe.getBoundingClientRect().width || 80; };
 const isWide = () => window.innerWidth >= 1000;
 const isPhone = () => window.innerWidth <= 640;
+const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+// The height the page really has. Opened from the home screen, iPhones can report a viewport shorter than
+// the screen (leaving a white band at the bottom), so there the full screen height is used.
+function setAppHeight() {
+  const h = standalone && isPhone() ? Math.max(window.innerHeight, screen.height) : window.innerHeight;
+  document.documentElement.style.setProperty('--app-h', h + 'px');
+}
+setAppHeight();
 
 // Game settings, remembered between visits.
 const DIFF_NAMES = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
@@ -1015,14 +1024,17 @@ function drawArrows() {
   const gap = phone ? 15 : 11;
   let out = '';
   for (let i = 0; i < seats.length; i++) {
-    const from = seats[i] + gap, to = (i + 1 < seats.length ? seats[i + 1] : seats[0] + 360) - gap;
-    if (to - from < 10) continue;
+    const start = seats[i] + gap, end = (i + 1 < seats.length ? seats[i + 1] : seats[0] + 360) - gap;
+    if (end - start < 10) continue;
+    // A short arc in the middle of the gap between two seats.
+    const mid = (start + end) / 2, half = Math.min(phone ? 9 : 7, (end - start) / 2);
+    const from = mid - half, to = mid + half;
     const pts = [];
-    for (let d = from; d <= to; d += 2) pts.push(pt(d));
+    for (let d = from; d <= to + .01; d += 1) pts.push(pt(d));
     out += `<path d="M${pts.map(q => q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' L')}"/>`;
     // arrowhead at the end, pointing along the curve
     const [x2, y2] = pt(to), [x1, y1] = pt(to - 3);
-    const ang = Math.atan2(y2 - y1, x2 - x1), s = 9;
+    const ang = Math.atan2(y2 - y1, x2 - x1), s = 7;
     const tip = [x2 + Math.cos(ang) * s, y2 + Math.sin(ang) * s];
     const l = [x2 + Math.cos(ang + 2.5) * s, y2 + Math.sin(ang + 2.5) * s], r = [x2 + Math.cos(ang - 2.5) * s, y2 + Math.sin(ang - 2.5) * s];
     out += `<polygon class="head" points="${[tip, l, r].map(q => q.map(v => v.toFixed(1)).join(',')).join(' ')}"/>`;
@@ -1416,7 +1428,8 @@ document.addEventListener('click', e => {
   if (stackOpen && !$('stackpile').contains(e.target)) { stackOpen = false; $('stackpile').classList.remove('open'); }
 });
 let resizeTimer;
-window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+window.addEventListener('resize', () => { setAppHeight(); clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+window.addEventListener('orientationchange', () => setTimeout(() => { setAppHeight(); render(); }, 300));
 
 // Preload card images so cards don't pop in mid-game
 for (const s of Object.values(SUIT_FILE)) for (const r of ['1', 2, 3, 4, 5, 6, 7, 8, 9, 10, 'jack', 'queen', 'king']) new Image().src = `cards/${s}_${r}.png`;
